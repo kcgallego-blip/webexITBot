@@ -127,6 +127,63 @@ class TicketService {
     }
   }
 
+  async createDirectRequestTicket(ticket) {
+    const submittedAt = new Date();
+    const record = {
+      category: ticket.category || null,
+      concern: ticket.concern || null,
+      date: this.formatDate(submittedAt),
+      start_time: this.formatTime(submittedAt),
+      name: ticket.name || null,
+      end_time: null,
+      troubleshooting: null,
+      assisted_by: null,
+      status: 'Open',
+      affected_five9: Boolean(ticket.affectedFive9),
+      onsite: ticket.onsite !== false,
+      webex_message_id: null,
+      team_leader: ticket.teamLeader || null
+    };
+
+    try {
+      const response = await this.client.post(`/${this.ticketsTable}`, record, {
+        headers: {
+          Prefer: 'return=representation'
+        }
+      });
+
+      const saved = Array.isArray(response.data) ? response.data[0] : response.data;
+      if (!saved?.ticketid) {
+        throw new Error('Supabase did not return the new ticket ID');
+      }
+
+      return saved;
+    } catch (error) {
+      const details = error.response?.data?.message || error.response?.data?.hint || error.message;
+      throw new Error(`Failed to save ticket to Supabase: ${details}`);
+    }
+  }
+
+  async updateTicketWebexMessageId(ticketId, webexMessageId) {
+    if (!ticketId || !webexMessageId) return false;
+
+    try {
+      await this.client.patch(
+        `/${this.ticketsTable}`,
+        { webex_message_id: webexMessageId },
+        {
+          params: {
+            ticketid: `eq.${ticketId}`
+          }
+        }
+      );
+      return true;
+    } catch (error) {
+      const details = error.response?.data?.message || error.message;
+      throw new Error(`Failed to update ticket Webex message ID in Supabase: ${details}`);
+    }
+  }
+
   async getUniqueTeamLeaders() {
     try {
       const response = await this.client.get(`/${this.agentsTable}`, {

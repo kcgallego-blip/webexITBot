@@ -519,6 +519,221 @@ ticketDetailsCard(ticket) {
     return toTitleCase(subcategory);
   },
 
+  rAgentSelectionCard(searchName, issue, agentResults = []) {
+    return {
+      contentType: "application/vnd.microsoft.card.adaptive",
+      content: {
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "type": "AdaptiveCard",
+        "version": "1.3",
+        "body": [
+          {
+            "type": "TextBlock",
+            "text": "Create Ticket",
+            "size": "medium",
+            "weight": "Bolder"
+          },
+          {
+            "type": "TextBlock",
+            "text": `Found ${agentResults.length} agents matching "${searchName}". Please select one:`,
+            "wrap": true
+          },
+          {
+            "type": "TextBlock",
+            "text": `**Issue:** ${issue}`,
+            "wrap": true
+          },
+          {
+            "type": "Input.ChoiceSet",
+            "id": "rSelectedAgent",
+            "style": "compact",
+            "choices": agentResults.map(agent => ({
+              title: agent.teamLeader ? `${agent.name} (${agent.teamLeader})` : agent.name,
+              value: JSON.stringify({ name: agent.name, teamLeader: agent.teamLeader })
+            })),
+            "isRequired": true,
+            "errorMessage": "Please select an agent"
+          }
+        ],
+        "actions": [
+          {
+            "type": "Action.Submit",
+            "title": "Next",
+            "data": { "action": "rSelectAgent" }
+          },
+          {
+            "type": "Action.Submit",
+            "title": "Cancel",
+            "style": "destructive",
+            "data": { "action": "rCancel" }
+          }
+        ]
+      }
+    };
+  },
+
+  rCategoryCard({ teamLeader = '', agentName = '', issue = '' } = {}) {
+    const categories = [
+      'Hardware',
+      'Internet Connection',
+      'Zendesk',
+      'Five9',
+      'Google',
+      'Credentials',
+      'Others'
+    ];
+
+    return {
+      contentType: "application/vnd.microsoft.card.adaptive",
+      content: {
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "type": "AdaptiveCard",
+        "version": "1.3",
+        "body": [
+          {
+            "type": "TextBlock",
+            "text": "Create Ticket",
+            "size": "medium",
+            "weight": "Bolder"
+          },
+          {
+            "type": "TextBlock",
+            "text": `**Team Leader:** ${teamLeader || 'N/A'}`,
+            "wrap": true
+          },
+          {
+            "type": "TextBlock",
+            "text": `**Agent:** ${agentName || 'N/A'}`,
+            "wrap": true
+          },
+          {
+            "type": "TextBlock",
+            "text": `**Issue:** ${issue || 'N/A'}`,
+            "wrap": true
+          },
+          {
+            "type": "Input.ChoiceSet",
+            "id": "rCategory",
+            "style": "compact",
+            "choices": categories.map(category => ({
+              title: category,
+              value: category
+            })),
+            "isRequired": true,
+            "errorMessage": "Please select a category"
+          }
+        ],
+        "actions": [
+          {
+            "type": "Action.Submit",
+            "title": "Next",
+            "data": { "action": "rSelectCategory" }
+          },
+          {
+            "type": "Action.Submit",
+            "title": "Cancel",
+            "style": "destructive",
+            "data": { "action": "rCancel" }
+          }
+        ]
+      }
+    };
+  },
+
+  rConfirmationCard({ teamLeader = '', agentName = '', category = '', issue = '' } = {}) {
+    return {
+      contentType: "application/vnd.microsoft.card.adaptive",
+      content: {
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "type": "AdaptiveCard",
+        "version": "1.3",
+        "body": [
+          {
+            "type": "TextBlock",
+            "text": "Confirm Ticket",
+            "size": "medium",
+            "weight": "Bolder"
+          },
+          {
+            "type": "TextBlock",
+            "text": `**Team Leader:** ${teamLeader || 'N/A'}`,
+            "wrap": true
+          },
+          {
+            "type": "TextBlock",
+            "text": `**Agent:** ${agentName || 'N/A'}`,
+            "wrap": true
+          },
+          {
+            "type": "TextBlock",
+            "text": `**Category:** ${category || 'N/A'}`,
+            "wrap": true
+          },
+          {
+            "type": "TextBlock",
+            "text": `**Issue:** ${issue || 'N/A'}`,
+            "wrap": true
+          },
+          {
+            "type": "Input.Toggle",
+            "id": "affectedFive9",
+            "title": "Does this affect the agent's Five9 login hours?",
+            "value": "false",
+            "valueOn": "true",
+            "valueOff": "false"
+          },
+          {
+            "type": "Input.Toggle",
+            "id": "onsite",
+            "title": "Is agent onsite?",
+            "value": "true",
+            "valueOn": "true",
+            "valueOff": "false"
+          }
+        ],
+        "actions": [
+          {
+            "type": "Action.Submit",
+            "title": "Submit",
+            "style": "positive",
+            "data": { "action": "rSubmit" }
+          },
+          {
+            "type": "Action.Submit",
+            "title": "Cancel",
+            "style": "destructive",
+            "data": { "action": "rCancel" }
+          }
+        ]
+      }
+    };
+  },
+
+  rSubmittedCard(ticketId) {
+    return {
+      contentType: "application/vnd.microsoft.card.adaptive",
+      content: {
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "type": "AdaptiveCard",
+        "version": "1.3",
+        "body": [
+          {
+            "type": "TextBlock",
+            "text": "Ticket Submitted",
+            "size": "medium",
+            "weight": "Bolder",
+            "color": "good"
+          },
+          {
+            "type": "TextBlock",
+            "text": `Ticket #${ticketId} has been created.`,
+            "wrap": true
+          }
+        ]
+      }
+    };
+  },
+
 /**
     * Report selection card for /r command
     */

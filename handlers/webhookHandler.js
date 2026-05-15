@@ -4,6 +4,7 @@
  */
 
 const crypto = require('crypto');
+const axios = require('axios');
 
 function webhookHandler(webexBot, logger, ticketService, cardTemplates) {
   return async (req, res) => {
@@ -168,7 +169,7 @@ async function handleMembershipEvent(webexBot, logger, event, data) {
           },
           {
             "type": "TextBlock",
-            "text": "Hi! I'm your Webex assistant. Type **/r** to create a request.",
+            "text": "Hi! I'm your Webex assistant. Type **/r <name> <issue>** to create a ticket.",
             "wrap": true
           }
         ],
@@ -306,6 +307,120 @@ async function handleCardSubmission(webexBot, logger, ticketService, cardTemplat
 
   try {
     switch (action) {
+      case 'rSelectAgent': {
+        const selectedAgentJson = cardData.rSelectedAgent;
+        if (!selectedAgentJson) {
+          await webexBot.sendCard(roomId, cardTemplates.errorCard('Please select an agent.'));
+          return;
+        }
+
+        let selectedAgent;
+        try {
+          selectedAgent = JSON.parse(selectedAgentJson);
+        } catch (e) {
+          await webexBot.sendCard(roomId, cardTemplates.errorCard('Invalid agent selection.'));
+          return;
+        }
+
+        const convo = ticketService.getConversation(personId);
+        if (!convo?.data?.rIssue) {
+          await webexBot.sendCard(roomId, cardTemplates.errorCard('Request details expired. Please use /r <name> <issue> again.'));
+          return;
+        }
+
+        ticketService.updateConversation(personId, {
+          rAgentName: selectedAgent.name,
+          rTeamLeader: selectedAgent.teamLeader
+        });
+
+        await sendOrUpdateCard(webexBot, roomId, sourceMessageId, cardTemplates.rCategoryCard({
+          teamLeader: selectedAgent.teamLeader,
+          agentName: selectedAgent.name,
+          issue: convo.data.rIssue
+        }));
+        break;
+      }
+
+      case 'rSelectCategory': {
+        const category = String(cardData.rCategory || '').trim();
+        if (!category) {
+          await webexBot.sendCard(roomId, cardTemplates.errorCard('Please select a category.'));
+          return;
+        }
+
+        const convo = ticketService.getConversation(personId);
+        if (!convo?.data?.rAgentName || !convo?.data?.rIssue) {
+          await webexBot.sendCard(roomId, cardTemplates.errorCard('Request details expired. Please use /r <name> <issue> again.'));
+          return;
+        }
+
+        ticketService.updateConversation(personId, { rCategory: category });
+
+        await sendOrUpdateCard(webexBot, roomId, sourceMessageId, cardTemplates.rConfirmationCard({
+          teamLeader: convo.data.rTeamLeader,
+          agentName: convo.data.rAgentName,
+          category,
+          issue: convo.data.rIssue
+        }));
+        break;
+      }
+
+      case 'rSubmit': {
+        const convo = ticketService.getConversation(personId);
+        if (!convo?.data?.rAgentName || !convo?.data?.rIssue || !convo?.data?.rCategory) {
+          await webexBot.sendCard(roomId, cardTemplates.errorCard('Request details expired. Please use /r <name> <issue> again.'));
+          return;
+        }
+
+        const affectedFive9 = String(cardData.affectedFive9 || 'false') === 'true';
+        const onsite = String(cardData.onsite || 'false') === 'true';
+
+        const ticket = await ticketService.createDirectRequestTicket({
+          category: convo.data.rCategory,
+          concern: convo.data.rIssue,
+          name: convo.data.rAgentName,
+          teamLeader: convo.data.rTeamLeader,
+          affectedFive9,
+          onsite
+        });
+
+        let sentMessageId = null;
+        try {
+          const apiResult = await triggerTicketMessage(ticket.ticketid);
+          sentMessageId = apiResult?.message?.id || apiResult?.message?.messageId || null;
+          if (sentMessageId) {
+            await ticketService.updateTicketWebexMessageId(ticket.ticketid, sentMessageId);
+          }
+        } catch (error) {
+          logger.error(`Ticket ${ticket.ticketid} saved but /api/ticket/message failed: ${error.message}`);
+          await webexBot.sendCard(roomId, cardTemplates.errorCard(`Ticket #${ticket.ticketid} was saved, but failed to send the ticket room message.`));
+          ticketService.cancelConversation(personId);
+          return;
+        }
+
+        await sendOrUpdateCard(webexBot, roomId, sourceMessageId, cardTemplates.rSubmittedCard(ticket.ticketid));
+        ticketService.cancelConversation(personId);
+        break;
+      }
+
+      case 'rCancel': {
+        ticketService.cancelConversation(personId);
+        if (sourceMessageId) {
+          try {
+            await webexBot.updateMessage(sourceMessageId, {
+              roomId,
+              text: 'Operation cancelled.',
+              attachments: []
+            });
+            return;
+          } catch (e) {
+            logger.debug('Could not update /r message on cancel:', e.message);
+          }
+        }
+        await webexBot.sendMessage({ roomId, markdown: 'Operation cancelled.' });
+        break;
+      }
+
       case 'selectReport': {
         const reportType = cardData.reportType;
         if (!reportType) {
@@ -758,6 +873,16 @@ function formatTime12Hour(time24) {
   return `${hours12}:${String(minutes).padStart(2, '0')} ${period}`;
 }
 
+async function triggerTicketMessage(ticketId) {
+  const port = process.env.PORT || 3000;
+  const baseUrl = (process.env.INTERNAL_API_BASE_URL || `http://localhost:${port}`).replace(/\/+$/, '');
+  const response = await axios.get(`${baseUrl}/api/ticket/message`, {
+    params: { id: ticketId },
+    timeout: 15000
+  });
+  return response.data;
+}
+
 /**
  * Process incoming message and generate response
  * Customize this function based on your bot's functionality
@@ -766,10 +891,52 @@ async function processMessage(webexBot, logger, ticketService, cardTemplates, me
   const { text, roomId, personId, personEmail } = messageData;
   const lowerText = text.toLowerCase().trim();
 
-// Report selection card for /r command
-   if (lowerText === '/r') {
-     return cardTemplates.reportSelectionCard();
-   }
+  if (lowerText === '/r' || lowerText.startsWith('/r ')) {
+    const parts = text.trim().split(/\s+/);
+    if (parts.length < 3) {
+      return cardTemplates.errorCard('Usage: /r <name> <issue>\nExample: /r John cannot access Zendesk');
+    }
+
+    const searchName = parts[1];
+    const issue = parts.slice(2).join(' ').trim();
+    if (!issue) {
+      return cardTemplates.errorCard('Please include the issue after the agent name.\nExample: /r John cannot access Zendesk');
+    }
+
+    try {
+      const results = await ticketService.searchAgentsByName(searchName);
+
+      if (results.length === 0) {
+        return cardTemplates.errorCard(`No agent found matching "${searchName}".`);
+      }
+
+      ticketService.startConversation(personId, personEmail, roomId, '');
+      ticketService.updateConversation(personId, {
+        rSearchName: searchName,
+        rIssue: issue,
+        rStep: results.length === 1 ? 'category' : 'selectAgent'
+      });
+
+      if (results.length === 1) {
+        const agent = results[0];
+        ticketService.updateConversation(personId, {
+          rAgentName: agent.name,
+          rTeamLeader: agent.teamLeader
+        });
+
+        return cardTemplates.rCategoryCard({
+          teamLeader: agent.teamLeader,
+          agentName: agent.name,
+          issue
+        });
+      }
+
+      return cardTemplates.rAgentSelectionCard(searchName, issue, results);
+    } catch (error) {
+      logger.error('/r search error:', error.message);
+      return cardTemplates.errorCard('Failed to search agents. Please try again.');
+    }
+  }
 
 // Five9 logout command: /f9 <name> <time>
     if (lowerText.startsWith('/f9 ')) {
@@ -868,11 +1035,11 @@ async function processMessage(webexBot, logger, ticketService, cardTemplates, me
     }
 
   if (lowerText === 'help' || lowerText === '/help') {
-    return `**Available Commands:**\n- **/r** - Begin request workflow\n- **help** - Show this help message\n- **status** - Bot status\n- **rooms** - List rooms bot is in\n- **info** - Bot information\n- **ping** - Check bot responsiveness`;
+    return `**Available Commands:**\n- **/r <name> <issue>** - Create a ticket\n- **/f9 <agent name> <time>** - Record Five9 logout\n- **help** - Show this help message\n- **status** - Bot status\n- **rooms** - List rooms bot is in\n- **info** - Bot information\n- **ping** - Check bot responsiveness`;
   }
 
   if (lowerText === '/get_started' || lowerText === 'get started') {
-    return `Welcome aboard!\n\nType **/r** to create a request.\n\nOther commands:\n- **help** - See all commands\n- **status** - Check bot health`;
+    return `Welcome aboard!\n\nType **/r <name> <issue>** to create a ticket.\n\nOther commands:\n- **help** - See all commands\n- **status** - Check bot health`;
   }
 
   // Command handling
