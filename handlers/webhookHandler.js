@@ -663,6 +663,66 @@ break;
         break;
       }
 
+      case 'f9CheckNext': {
+        const loginTime = String(cardData.endTime || '').trim();
+        const timeRegex = /^([01]?[0-9]|2[0-3]):([0-5][0-9])$/;
+        if (!timeRegex.test(loginTime)) {
+          await webexBot.sendCard(roomId, cardTemplates.errorCard('Invalid login time format. Use HH:MM (24-hour format).'));
+          return;
+        }
+
+        const convo = ticketService.getConversation(personId);
+        const records = convo?.data?.f9CheckRecords || [];
+        const currentIndex = Number(convo?.data?.f9CheckIndex || 0);
+        const currentRecord = records[currentIndex];
+
+        if (!currentRecord?.id) {
+          await webexBot.sendCard(roomId, cardTemplates.errorCard('No Five9 backlog record found. Please run /f9check again.'));
+          return;
+        }
+
+        await ticketService.updateFive9EndTimeForSender(currentRecord.id, personId, loginTime);
+
+        const nextIndex = currentIndex + 1;
+        if (nextIndex < records.length) {
+          ticketService.updateConversation(personId, { f9CheckIndex: nextIndex });
+          await sendOrUpdateCard(
+            webexBot,
+            roomId,
+            sourceMessageId,
+            cardTemplates.f9CheckCard(records[nextIndex], nextIndex, records.length)
+          );
+          return;
+        }
+
+        await sendOrUpdateCard(
+          webexBot,
+          roomId,
+          sourceMessageId,
+          cardTemplates.f9CheckCompleteCard(records.length)
+        );
+        ticketService.cancelConversation(personId);
+        break;
+      }
+
+      case 'f9CheckCancel': {
+        ticketService.cancelConversation(personId);
+        if (sourceMessageId) {
+          try {
+            await webexBot.updateMessage(sourceMessageId, {
+              roomId,
+              text: 'Five9 backlog check cancelled.',
+              attachments: []
+            });
+            return;
+          } catch (e) {
+            logger.debug('Could not update /f9check message on cancel:', e.message);
+          }
+        }
+        await webexBot.sendMessage({ roomId, markdown: 'Five9 backlog check cancelled.' });
+        break;
+      }
+
       case 'f9Submit': {
         logger.debug(`f9Submit - personId: ${personId}, action: ${action}`);
         const convo = ticketService.getConversation(personId);
@@ -938,6 +998,27 @@ async function processMessage(webexBot, logger, ticketService, cardTemplates, me
     }
   }
 
+  if (lowerText === '/f9check') {
+    try {
+      const records = await ticketService.getFive9BacklogBySender(personId);
+      if (records.length === 0) {
+        return cardTemplates.f9CheckEmptyCard();
+      }
+
+      ticketService.startConversation(personId, personEmail, roomId, '');
+      ticketService.updateConversation(personId, {
+        f9CheckRecords: records,
+        f9CheckIndex: 0,
+        f9Step: 'checkBacklog'
+      });
+
+      return cardTemplates.f9CheckCard(records[0], 0, records.length);
+    } catch (error) {
+      logger.error('/f9check error:', error.message);
+      return cardTemplates.errorCard('Failed to load Five9 backlog. Please try again.');
+    }
+  }
+
 // Five9 logout command: /f9 <name> <time>
     if (lowerText.startsWith('/f9 ')) {
       const parts = text.trim().split(/\s+/);
@@ -1035,7 +1116,7 @@ async function processMessage(webexBot, logger, ticketService, cardTemplates, me
     }
 
   if (lowerText === 'help' || lowerText === '/help') {
-    return `**Available Commands:**\n- **/r <name> <issue>** - Create a ticket\n- **/f9 <agent name> <time>** - Record Five9 logout\n- **help** - Show this help message\n- **status** - Bot status\n- **rooms** - List rooms bot is in\n- **info** - Bot information\n- **ping** - Check bot responsiveness`;
+    return `**Available Commands:**\n- **/r <name> <issue>** - Create a ticket\n- **/f9 <agent name> <time>** - Record Five9 logout\n- **/f9check** - Complete pending Five9 login times\n- **help** - Show this help message\n- **status** - Bot status\n- **rooms** - List rooms bot is in\n- **info** - Bot information\n- **ping** - Check bot responsiveness`;
   }
 
   if (lowerText === '/get_started' || lowerText === 'get started') {

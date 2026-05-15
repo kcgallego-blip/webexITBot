@@ -12,6 +12,17 @@ function toTitleCase(value = '') {
     .join(' ');
 }
 
+function toTimeDisplay(value = '') {
+  const match = String(value).match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return String(value);
+
+  const hours = Number(match[1]);
+  const minutes = match[2];
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const hours12 = hours % 12 || 12;
+  return `${hours12}:${minutes} ${period}`;
+}
+
 const cardTemplates = {
   teamLeaderCard(teamLeaders = []) {
     return {
@@ -937,6 +948,112 @@ f9UnifiedCard(state, data = {}) {
       }
     };
   },
+
+f9CheckCard(record, index, total) {
+      const isLast = index >= total - 1;
+      const logoutTime = record.startTime ? toTimeDisplay(record.startTime) : 'N/A';
+
+      return {
+        contentType: "application/vnd.microsoft.card.adaptive",
+        content: {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.3",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": `Five9 Backlog ${index + 1} of ${total}`,
+              "size": "medium",
+              "weight": "Bolder"
+            },
+            {
+              "type": "TextBlock",
+              "text": `**Name:** ${record.name || 'N/A'}`,
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": `**Team Leader:** ${record.teamLeader || 'N/A'}`,
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": `**Logout Time:** ${logoutTime}`,
+              "wrap": true
+            },
+            {
+              "type": "Input.Text",
+              "id": "endTime",
+              "placeholder": "Login time, e.g. 22:30"
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.Submit",
+              "title": isLast ? "Submit" : "Next",
+              "style": "positive",
+              "data": { "action": "f9CheckNext" }
+            },
+            {
+              "type": "Action.Submit",
+              "title": "Cancel",
+              "style": "destructive",
+              "data": { "action": "f9CheckCancel" }
+            }
+          ]
+        }
+      };
+    },
+
+f9CheckEmptyCard() {
+      return {
+        contentType: "application/vnd.microsoft.card.adaptive",
+        content: {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.3",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "🎉 Five9 Backlog Clear",
+              "size": "medium",
+              "weight": "Bolder",
+              "color": "good"
+            },
+            {
+              "type": "TextBlock",
+              "text": "Nice, no pending Five9 login times were found for your Webex account.",
+              "wrap": true
+            }
+          ]
+        }
+      };
+    },
+
+f9CheckCompleteCard(total) {
+      return {
+        contentType: "application/vnd.microsoft.card.adaptive",
+        content: {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.3",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "Five9 Backlog Complete",
+              "size": "medium",
+              "weight": "Bolder",
+              "color": "good"
+            },
+            {
+              "type": "TextBlock",
+              "text": `${total} backlog ${total === 1 ? 'record has' : 'records have'} been updated.`,
+              "wrap": true
+            }
+          ]
+        }
+      };
+    },
 
 f9EndTimeCard(teamLeader, agentName, startTime) {
       return this.f9UnifiedCard('loginTime', {

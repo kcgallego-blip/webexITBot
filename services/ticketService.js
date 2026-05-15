@@ -11,6 +11,7 @@ class TicketService {
     this.ticketsTable = supabaseConfig?.ticketsTable || 'tickets';
     this.agentsTable = supabaseConfig?.agentsTable || 'agents';
     this.five9Table = supabaseConfig?.five9Table || 'five9';
+    this.usersTable = supabaseConfig?.usersTable || 'users';
 
     this.client = axios.create({
       baseURL: `${this.supabaseUrl}/rest/v1`,
@@ -279,6 +280,73 @@ class TicketService {
       }, {
         params: {
           id: `eq.${recordId}`
+        }
+      });
+      return true;
+    } catch (error) {
+      const details = error.response?.data?.message || error.message;
+      throw new Error(`Failed to update Five9 end time in Supabase: ${details}`);
+    }
+  }
+
+  async getFive9BacklogBySender(webexSenderId) {
+    try {
+      const response = await this.client.get(`/${this.five9Table}`, {
+        params: {
+          select: 'id,name,start_time,end_time,webex_sender_id',
+          webex_sender_id: `eq.${webexSenderId}`,
+          end_time: 'is.null',
+          order: 'start_time.asc'
+        }
+      });
+
+      const rows = Array.isArray(response.data) ? response.data : [];
+      const teamLeaderByName = new Map();
+
+      for (const row of rows) {
+        const name = String(row.name || '').trim();
+        if (!name || teamLeaderByName.has(name)) continue;
+        teamLeaderByName.set(name, await this.getUserTeamLeader(name));
+      }
+
+      return rows.map(row => ({
+        id: row.id,
+        name: String(row.name || '').trim(),
+        startTime: String(row.start_time || '').trim(),
+        teamLeader: teamLeaderByName.get(String(row.name || '').trim()) || ''
+      }));
+    } catch (error) {
+      const details = error.response?.data?.message || error.message;
+      throw new Error(`Failed to load Five9 backlog from Supabase: ${details}`);
+    }
+  }
+
+  async getUserTeamLeader(name) {
+    try {
+      const response = await this.client.get(`/${this.usersTable}`, {
+        params: {
+          select: 'team_leader',
+          name: `eq.${name}`,
+          limit: 1
+        }
+      });
+
+      const row = Array.isArray(response.data) ? response.data[0] : null;
+      return String(row?.team_leader || '').trim();
+    } catch (error) {
+      return '';
+    }
+  }
+
+  async updateFive9EndTimeForSender(recordId, webexSenderId, endTime) {
+    try {
+      await this.client.patch(`/${this.five9Table}`, {
+        end_time: endTime
+      }, {
+        params: {
+          id: `eq.${recordId}`,
+          webex_sender_id: `eq.${webexSenderId}`,
+          end_time: 'is.null'
         }
       });
       return true;

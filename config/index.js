@@ -44,7 +44,8 @@ function loadConfig() {
       url: process.env.SUPABASE_URL,
       serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
       ticketsTable: process.env.SUPABASE_TICKETS_TABLE || 'tickets',
-      agentsTable: process.env.SUPABASE_AGENTS_TABLE || 'agents'
+      agentsTable: process.env.SUPABASE_AGENTS_TABLE || 'agents',
+      usersTable: process.env.SUPABASE_USERS_TABLE || 'users'
     }
   };
 }
