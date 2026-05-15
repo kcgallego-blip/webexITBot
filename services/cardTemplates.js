@@ -517,7 +517,219 @@ ticketDetailsCard(ticket) {
 
   formatSubcategoryLabel(subcategory) {
     return toTitleCase(subcategory);
-  }
-};
+  },
+
+/**
+    * Report selection card for /r command
+    */
+   reportSelectionCard() {
+     return {
+       contentType: "application/vnd.microsoft.card.adaptive",
+       content: {
+         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+         "type": "AdaptiveCard",
+         "version": "1.3",
+         "body": [
+           {
+             "type": "TextBlock",
+             "text": "Select Report",
+             "size": "medium",
+             "weight": "Bolder"
+           },
+           {
+             "type": "Input.ChoiceSet",
+             "id": "reportType",
+             "style": "compact",
+             "choices": [
+               { "title": "Five9 Logout Report", "value": "five9_logout" },
+               { "title": "IT Issue Report (Requires IT Troubleshooting)", "value": "it_issue" }
+             ],
+             "isRequired": true,
+             "errorMessage": "Please select a report"
+           }
+         ],
+         "actions": [
+           {
+             "type": "Action.Submit",
+             "title": "Next",
+             "data": { "action": "selectReport" }
+           }
+         ]
+       }
+     };
+   },
+
+f9UnifiedCard(state, data = {}) {
+    const {
+      teamLeader = '',
+      agentName = '',
+      logoutTime = '',
+      loginTime = '',
+      searchTerm = '',
+      agentResults = []
+    } = data;
+
+    const body = [
+      {
+        "type": "TextBlock",
+        "text": "Five9 Logout",
+        "size": "medium",
+        "weight": "Bolder"
+      }
+    ];
+
+    if (state === 'selectAgent') {
+      body.push(
+        {
+          "type": "TextBlock",
+          "text": `Logout Time: ${logoutTime}`,
+          "wrap": true
+        },
+        {
+          "type": "TextBlock",
+          "text": "Select Agent:",
+          "wrap": true
+        },
+        {
+          "type": "Input.ChoiceSet",
+          "id": "f9SelectedAgent",
+          "style": "compact",
+          "choices": agentResults.map(agent => ({
+            title: agent.name,
+            value: JSON.stringify({ name: agent.name, teamLeader: agent.teamLeader })
+          })),
+          "isRequired": true
+        }
+      );
+    } else if (state === 'confirm') {
+      body.push(
+        {
+          "type": "TextBlock",
+          "text": `**Team Leader:** ${teamLeader}`,
+          "wrap": true
+        },
+        {
+          "type": "TextBlock",
+          "text": `**Agent:** ${agentName}`,
+          "wrap": true
+        },
+        {
+          "type": "TextBlock",
+          "text": `**Logout Time:** ${logoutTime}`,
+          "wrap": true
+        }
+      );
+    } else if (state === 'loginTime') {
+      body.push(
+        {
+          "type": "TextBlock",
+          "text": `**Team Leader:** ${teamLeader}`,
+          "wrap": true
+        },
+        {
+          "type": "TextBlock",
+          "text": `**Agent:** ${agentName}`,
+          "wrap": true
+        },
+        {
+          "type": "TextBlock",
+          "text": `**Logout Time:** ${logoutTime}`,
+          "wrap": true
+        },
+        {
+          "type": "TextBlock",
+          "text": "Enter Login Time (24-hour format, e.g., 22:30):",
+          "wrap": true
+        },
+        {
+          "type": "Input.Text",
+          "id": "endTime",
+          "placeholder": "HH:MM",
+          "isRequired": true
+        }
+      );
+    } else if (state === 'complete') {
+      body.push(
+        {
+          "type": "TextBlock",
+          "text": `**Team Leader:** ${teamLeader}`,
+          "wrap": true
+        },
+        {
+          "type": "TextBlock",
+          "text": `**Agent:** ${agentName}`,
+          "wrap": true
+        },
+        {
+          "type": "TextBlock",
+          "text": `**Logout Time:** ${logoutTime}`,
+          "wrap": true
+        },
+        {
+          "type": "TextBlock",
+          "text": `**Login Time:** ${loginTime}`,
+          "wrap": true
+        },
+        {
+          "type": "TextBlock",
+          "text": "✅ Five9 logout recorded successfully",
+          "wrap": true,
+          "weight": "Bolder",
+          "color": "good"
+        }
+      );
+    }
+
+    const actions = [];
+    if (state === 'selectAgent') {
+      actions.push({
+        "type": "Action.Submit",
+        "title": "Next",
+        "data": { "action": "f9SelectAgent" }
+      });
+    } else if (state === 'confirm') {
+      actions.push(
+        {
+          "type": "Action.Submit",
+          "title": "Submit",
+          "style": "positive",
+          "data": { "action": "f9Submit" }
+        },
+        {
+          "type": "Action.Submit",
+          "title": "Cancel",
+          "style": "destructive",
+          "data": { "action": "f9Cancel" }
+        }
+      );
+    } else if (state === 'loginTime') {
+      actions.push({
+        "type": "Action.Submit",
+        "title": "Update Login Time",
+        "style": "positive",
+        "data": { "action": "f9EndTimeSubmit" }
+      });
+    }
+
+    return {
+      contentType: "application/vnd.microsoft.card.adaptive",
+      content: {
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "type": "AdaptiveCard",
+        "version": "1.3",
+        "body": body,
+        "actions": actions
+      }
+    };
+  },
+
+f9EndTimeCard(teamLeader, agentName, startTime) {
+      return this.f9UnifiedCard('loginTime', {
+        teamLeader,
+        agentName,
+        logoutTime: startTime
+      });
+    }
+  };
 
 module.exports = { cardTemplates };

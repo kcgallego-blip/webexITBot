@@ -10,6 +10,7 @@ class TicketService {
     this.serviceRoleKey = supabaseConfig?.serviceRoleKey;
     this.ticketsTable = supabaseConfig?.ticketsTable || 'tickets';
     this.agentsTable = supabaseConfig?.agentsTable || 'agents';
+    this.five9Table = supabaseConfig?.five9Table || 'five9';
 
     this.client = axios.create({
       baseURL: `${this.supabaseUrl}/rest/v1`,
@@ -166,6 +167,67 @@ class TicketService {
     } catch (error) {
       const details = error.response?.data?.message || error.message;
       throw new Error(`Failed to load agents from Supabase: ${details}`);
+    }
+  }
+
+  async searchAgentsByName(searchTerm) {
+    try {
+      const searchPattern = `%${searchTerm}%`;
+      const response = await this.client.get(`/${this.agentsTable}`, {
+        params: {
+          select: 'name,team_leader',
+          or: `(name.ilike.${searchPattern})`,
+          order: 'name.asc',
+          limit: 25
+        }
+      });
+
+      return (Array.isArray(response.data) ? response.data : [])
+        .map(row => ({
+          name: String(row.name || '').trim(),
+          teamLeader: String(row.team_leader || '').trim()
+        }))
+        .filter(agent => agent.name);
+    } catch (error) {
+      const details = error.response?.data?.message || error.message;
+      throw new Error(`Failed to search agents from Supabase: ${details}`);
+    }
+  }
+
+  async insertFive9Record(agentName, startTime, webexMessageId = null, webexSenderId = null) {
+    try {
+      const response = await this.client.post(`/${this.five9Table}`, {
+        name: agentName,
+        start_time: startTime,
+        end_time: null,
+        webex_message_id: webexMessageId,
+        webex_sender_id: webexSenderId
+      }, {
+        headers: {
+          Prefer: 'return=representation'
+        }
+      });
+
+      return response.data && response.data[0];
+    } catch (error) {
+      const details = error.response?.data?.message || error.message;
+      throw new Error(`Failed to save Five9 record to Supabase: ${details}`);
+    }
+  }
+
+  async updateFive9EndTime(recordId, endTime) {
+    try {
+      await this.client.patch(`/${this.five9Table}`, {
+        end_time: endTime
+      }, {
+        params: {
+          id: `eq.${recordId}`
+        }
+      });
+      return true;
+    } catch (error) {
+      const details = error.response?.data?.message || error.message;
+      throw new Error(`Failed to update Five9 end time in Supabase: ${details}`);
     }
   }
 

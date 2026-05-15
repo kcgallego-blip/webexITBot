@@ -236,6 +236,7 @@ async function handleAttachmentActionEvent(webexBot, logger, ticketService, card
   } = actionDetails;
 
   logger.info(`Attachment action from ${personEmail || personId || 'unknown'}, type: ${type}`);
+  logger.debug(`Attachment action personId: ${personId}, roomId: ${roomId}`);
   logger.debug(`Attachment action data: ${JSON.stringify(data)}`);
 
   if (!roomId) {
@@ -243,7 +244,7 @@ async function handleAttachmentActionEvent(webexBot, logger, ticketService, card
     return;
   }
 
-  // Check if this is a direct message
+// Check if this is a direct message
   let roomDetails = null;
   try {
     roomDetails = await webexBot.getRoomDetails(roomId);
@@ -252,14 +253,17 @@ async function handleAttachmentActionEvent(webexBot, logger, ticketService, card
     return;
   }
 
-   // Only respond to direct messages (type === 'direct'), not to group rooms
-   // Exception: allow assignAgent action from group rooms (for ticket cards)
-   const isAssignAgentAction = action === 'assignAgent';
-   
-   if (roomDetails.type !== 'direct' && !isAssignAgentAction) {
-     logger.info(`Ignoring attachment action in ${roomDetails.type} room: ${roomDetails.title || roomId}`);
-     return;
-   }
+  // Extract action from inputs before room type check
+  const action = inputs.action;
+
+  // Only respond to direct messages (type === 'direct'), not to group rooms
+  // Exception: allow assignAgent action from group rooms (for ticket cards)
+  const isAssignAgentAction = action === 'assignAgent';
+  
+  if (roomDetails.type !== 'direct' && !isAssignAgentAction) {
+    logger.info(`Ignoring attachment action in ${roomDetails.type} room: ${roomDetails.title || roomId}`);
+    return;
+  }
 
   // Handle card submission
   if (type === 'submit') {
@@ -302,6 +306,26 @@ async function handleCardSubmission(webexBot, logger, ticketService, cardTemplat
 
   try {
     switch (action) {
+      case 'selectReport': {
+        const reportType = cardData.reportType;
+        if (!reportType) {
+          await webexBot.sendCard(roomId, cardTemplates.errorCard('Please select a report.'));
+          return;
+        }
+        await lockPreviousCard(webexBot, logger, cardTemplates, roomId, sourceMessageId, {
+          title: 'Select Report',
+          fields: [
+            { label: 'Report Type', value: reportType === 'five9_logout' ? 'Five9 Logout Report' : 'IT Issue Report' }
+          ],
+          note: 'Report selected. The next step will be added next.'
+        });
+        await webexBot.sendMessage({
+          roomId,
+          markdown: `**Report selected:** ${reportType === 'five9_logout' ? 'Five9 Logout Report' : 'IT Issue Report (Requires IT Troubleshooting)'}\n\nThe next step will be implemented.`
+        });
+        break;
+      }
+
       case 'selectAgentResult': {
         const agentName = String(cardData.agentName || '').trim();
         if (!agentName) {
@@ -472,8 +496,181 @@ async function handleCardSubmission(webexBot, logger, ticketService, cardTemplat
          } else {
            await webexBot.sendCard(roomId, cardTemplates.errorCard('Failed to save ticket. Please try again.'));
          }
-         break;
-       }
+break;
+        }
+
+      case 'f9SelectAgent': {
+        logger.debug(`f9SelectAgent - personId: ${personId}, conversation exists: ${!!ticketService.getConversation(personId)}`);
+        const selectedAgentJson = cardData.f9SelectedAgent;
+        if (!selectedAgentJson) {
+          await webexBot.sendCard(roomId, cardTemplates.errorCard('Please select an agent.'));
+          return;
+        }
+
+        let selectedAgent;
+        try {
+          selectedAgent = JSON.parse(selectedAgentJson);
+        } catch (e) {
+          await webexBot.sendCard(roomId, cardTemplates.errorCard('Invalid agent selection.'));
+          return;
+        }
+
+        const convo = ticketService.getConversation(personId);
+        const logoutTimeFormatted = formatTime12Hour(convo?.data?.f9StartTime || '00:00');
+
+        ticketService.updateConversation(personId, {
+          f9AgentName: selectedAgent.name,
+          f9TeamLeader: selectedAgent.teamLeader
+        });
+
+        if (sourceMessageId) {
+          await webexBot.updateMessage(sourceMessageId, {
+            roomId,
+            text: ' ',
+            attachments: [
+              {
+                contentType: "application/vnd.microsoft.card.adaptive",
+                content: cardTemplates.f9UnifiedCard('confirm', {
+                  teamLeader: selectedAgent.teamLeader,
+                  agentName: selectedAgent.name,
+                  logoutTime: logoutTimeFormatted
+                }).content
+              }
+            ]
+          });
+        } else {
+          await webexBot.sendCard(roomId, cardTemplates.f9UnifiedCard('confirm', {
+            teamLeader: selectedAgent.teamLeader,
+            agentName: selectedAgent.name,
+            logoutTime: logoutTimeFormatted
+          }));
+        }
+        break;
+      }
+
+      case 'f9Submit': {
+        logger.debug(`f9Submit - personId: ${personId}, action: ${action}`);
+        const convo = ticketService.getConversation(personId);
+        logger.debug(`f9Submit - personId: ${personId}, convo exists: ${!!convo}, f9AgentName: ${convo?.data?.f9AgentName}`);
+        if (!convo?.data?.f9AgentName) {
+          await webexBot.sendCard(roomId, cardTemplates.errorCard('No agent selected.'));
+          return;
+        }
+
+        const logoutTimeFormatted = formatTime12Hour(convo.data.f9StartTime);
+
+        try {
+          const record = await ticketService.insertFive9Record(
+            convo.data.f9AgentName,
+            convo.data.f9StartTime,
+            sourceMessageId,
+            personId
+          );
+
+          ticketService.updateConversation(personId, {
+            f9RecordId: record.id,
+            f9Step: 'endTime'
+          });
+
+          if (sourceMessageId) {
+            await webexBot.updateMessage(sourceMessageId, {
+              roomId,
+              text: ' ',
+              attachments: [
+                {
+                  contentType: "application/vnd.microsoft.card.adaptive",
+                  content: cardTemplates.f9UnifiedCard('loginTime', {
+                    teamLeader: convo.data.f9TeamLeader,
+                    agentName: convo.data.f9AgentName,
+                    logoutTime: logoutTimeFormatted
+                  }).content
+                }
+              ]
+            });
+          } else {
+            await webexBot.sendCard(roomId, cardTemplates.f9UnifiedCard('loginTime', {
+              teamLeader: convo.data.f9TeamLeader,
+              agentName: convo.data.f9AgentName,
+              logoutTime: logoutTimeFormatted
+            }));
+          }
+        } catch (error) {
+          logger.error('Failed to save Five9 record:', error.message);
+          await webexBot.sendCard(roomId, cardTemplates.errorCard('Failed to save record. Please try again.'));
+        }
+        break;
+      }
+
+      case 'f9Cancel': {
+        ticketService.cancelConversation(personId);
+        if (sourceMessageId) {
+          try {
+            await webexBot.updateMessage(sourceMessageId, {
+              roomId,
+              text: 'Operation cancelled.',
+              attachments: []
+            });
+            return;
+          } catch (e) {
+            logger.debug('Could not update message on cancel:', e.message);
+          }
+        }
+        await webexBot.sendMessage({ roomId, markdown: 'Operation cancelled.' });
+        break;
+      }
+
+      case 'f9EndTimeSubmit': {
+        const loginTime = (cardData.endTime || '').trim();
+        const timeRegex = /^([01]?[0-9]|2[0-3]):([0-5][0-9])$/;
+        if (!timeRegex.test(loginTime)) {
+          await webexBot.sendCard(roomId, cardTemplates.errorCard('Invalid login time format. Use HH:MM (24-hour format).'));
+          return;
+        }
+
+        const convo = ticketService.getConversation(personId);
+        if (!convo?.data?.f9RecordId) {
+          await webexBot.sendCard(roomId, cardTemplates.errorCard('No record found.'));
+          return;
+        }
+
+        try {
+          await ticketService.updateFive9EndTime(convo.data.f9RecordId, loginTime);
+
+          const logoutTimeFormatted = formatTime12Hour(convo.data.f9StartTime);
+          const loginTimeFormatted = formatTime12Hour(loginTime);
+
+          if (sourceMessageId) {
+            await webexBot.updateMessage(sourceMessageId, {
+              roomId,
+              text: ' ',
+              attachments: [
+                {
+                  contentType: "application/vnd.microsoft.card.adaptive",
+                  content: cardTemplates.f9UnifiedCard('complete', {
+                    teamLeader: convo.data.f9TeamLeader,
+                    agentName: convo.data.f9AgentName,
+                    logoutTime: logoutTimeFormatted,
+                    loginTime: loginTimeFormatted
+                  }).content
+                }
+              ]
+            });
+          } else {
+            await webexBot.sendCard(roomId, cardTemplates.f9UnifiedCard('complete', {
+              teamLeader: convo.data.f9TeamLeader,
+              agentName: convo.data.f9AgentName,
+              logoutTime: logoutTimeFormatted,
+              loginTime: loginTimeFormatted
+            }));
+          }
+
+          ticketService.cancelConversation(personId);
+        } catch (error) {
+          logger.error('Failed to update login time:', error.message);
+          await webexBot.sendCard(roomId, cardTemplates.errorCard('Failed to update login time.'));
+        }
+        break;
+      }
 
       default:
         logger.warn(`Unknown card action: ${action}`);
@@ -551,7 +748,14 @@ async function resolvePersonProfile(webexBot, logger, personId) {
   } catch (error) {
     logger.warn(`Failed to resolve Webex profile for ${personId}: ${error.message}`);
     return { name: '', email: '' };
-  }
+}
+ }
+
+function formatTime12Hour(time24) {
+  const [hours, minutes] = time24.split(':').map(Number);
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const hours12 = hours % 12 || 12;
+  return `${hours12}:${String(minutes).padStart(2, '0')} ${period}`;
 }
 
 /**
@@ -562,22 +766,106 @@ async function processMessage(webexBot, logger, ticketService, cardTemplates, me
   const { text, roomId, personId, personEmail } = messageData;
   const lowerText = text.toLowerCase().trim();
 
-   // Start request flow
+// Report selection card for /r command
    if (lowerText === '/r') {
-     const personProfile = await resolvePersonProfile(webexBot, logger, personId);
-     const teamLeaders = await ticketService.getUniqueTeamLeaders();
-     if (teamLeaders.length === 0) {
-       return cardTemplates.errorCard('No team leaders were found in Supabase.');
-     }
-     ticketService.startConversation(
-       personId,
-       personProfile.email || personEmail,
-       roomId,
-       personProfile.name
-     );
-     ticketService.advanceStep(personId, 'teamLeader');
-     return cardTemplates.teamLeaderCard(teamLeaders);
+     return cardTemplates.reportSelectionCard();
    }
+
+// Five9 logout command: /f9 <name> <time>
+    if (lowerText.startsWith('/f9 ')) {
+      const parts = text.trim().split(/\s+/);
+      const args = parts.slice(1); // Remove '/f9'
+
+      if (args.length < 2) {
+        return cardTemplates.errorCard('Usage: /f9 <agent name> <time in 24h format>\nExample: /f9 John 22:30');
+      }
+
+      const time = args[args.length - 1];
+      const nameParts = args.slice(0, -1);
+      const searchName = nameParts.join(' ');
+
+      const timeRegex = /^([01]?[0-9]|2[0-3]):([0-5][0-9])$/;
+      if (!timeRegex.test(time)) {
+        return cardTemplates.errorCard('Invalid time format. Use 24-hour format (HH:MM)\nExample: 22:30');
+      }
+
+      try {
+        const results = await ticketService.searchAgentsByName(searchName);
+
+        if (results.length === 0) {
+          return cardTemplates.errorCard(`No agent found matching "${searchName}".`);
+        }
+
+        if (results.length === 1) {
+          const agent = results[0];
+          const logoutTimeFormatted = formatTime12Hour(time);
+
+          ticketService.startConversation(personId, personEmail, roomId, '');
+          ticketService.updateConversation(personId, {
+            f9AgentName: agent.name,
+            f9TeamLeader: agent.teamLeader,
+            f9StartTime: time,
+            f9Step: 'confirm'
+          });
+          logger.debug(`Started conversation for personId ${personId} with agent ${agent.name}`);
+
+          // Store messageId for tracking but we'll update the card later
+          return cardTemplates.f9UnifiedCard('confirm', {
+            teamLeader: agent.teamLeader,
+            agentName: agent.name,
+            logoutTime: logoutTimeFormatted
+          });
+        }
+
+        const choices = results.map(r => ({ title: r.name, value: JSON.stringify({ name: r.name, teamLeader: r.teamLeader }) }));
+        ticketService.startConversation(personId, personEmail, roomId, '');
+        ticketService.updateConversation(personId, { f9StartTime: time });
+        logger.debug(`Started conversation for personId ${personId} with f9StartTime ${time}`);
+        return {
+          contentType: "application/vnd.microsoft.card.adaptive",
+          content: {
+            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+            "type": "AdaptiveCard",
+            "version": "1.3",
+            "body": [
+              {
+                "type": "TextBlock",
+                "text": "Five9 Logout",
+                "size": "medium",
+                "weight": "Bolder"
+              },
+              {
+                "type": "TextBlock",
+                "text": `Logout Time: ${formatTime12Hour(time)}`,
+                "wrap": true
+              },
+              {
+                "type": "TextBlock",
+                "text": `Found ${results.length} agents matching "${searchName}". Please select one:`,
+                "wrap": true
+              },
+              {
+                "type": "Input.ChoiceSet",
+                "id": "f9SelectedAgent",
+                "style": "compact",
+                "choices": choices,
+                "isRequired": true
+              }
+            ],
+            "actions": [
+              {
+                "type": "Action.Submit",
+                "title": "Next",
+                "data": { "action": "f9SelectAgent" }
+              }
+            ]
+          }
+        };
+      } catch (error) {
+        logger.error('F9 search error:', error.message);
+        return cardTemplates.errorCard('Failed to search agents. Please try again.');
+      }
+    }
 
   if (lowerText === 'help' || lowerText === '/help') {
     return `**Available Commands:**\n- **/r** - Begin request workflow\n- **help** - Show this help message\n- **status** - Bot status\n- **rooms** - List rooms bot is in\n- **info** - Bot information\n- **ping** - Check bot responsiveness`;
@@ -630,7 +918,7 @@ async function processMessage(webexBot, logger, ticketService, cardTemplates, me
   // 1. Return null (no response)
   // 2. Return a default message
   // 3. Process NLP/AI integration here
-   
+    
    return null; // No response for unrecognized messages
 }
 
