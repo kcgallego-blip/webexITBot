@@ -725,6 +725,7 @@ break;
 
       case 'f9Submit': {
         logger.debug(`f9Submit - personId: ${personId}, action: ${action}`);
+        const notes = String(cardData.notes || '').trim();
         const convo = ticketService.getConversation(personId);
         logger.debug(`f9Submit - personId: ${personId}, convo exists: ${!!convo}, f9AgentName: ${convo?.data?.f9AgentName}`);
         if (!convo?.data?.f9AgentName) {
@@ -739,11 +740,13 @@ break;
             convo.data.f9AgentName,
             convo.data.f9StartTime,
             sourceMessageId,
-            personId
+            personId,
+            notes
           );
 
           ticketService.updateConversation(personId, {
             f9RecordId: record.id,
+            f9Notes: notes,
             f9Step: 'endTime'
           });
 
@@ -757,7 +760,8 @@ break;
                   content: cardTemplates.f9UnifiedCard('loginTime', {
                     teamLeader: convo.data.f9TeamLeader,
                     agentName: convo.data.f9AgentName,
-                    logoutTime: logoutTimeFormatted
+                    logoutTime: logoutTimeFormatted,
+                    notes
                   }).content
                 }
               ]
@@ -766,7 +770,8 @@ break;
             await webexBot.sendCard(roomId, cardTemplates.f9UnifiedCard('loginTime', {
               teamLeader: convo.data.f9TeamLeader,
               agentName: convo.data.f9AgentName,
-              logoutTime: logoutTimeFormatted
+              logoutTime: logoutTimeFormatted,
+              notes
             }));
           }
         } catch (error) {
@@ -825,7 +830,8 @@ break;
                     teamLeader: convo.data.f9TeamLeader,
                     agentName: convo.data.f9AgentName,
                     logoutTime: logoutTimeFormatted,
-                    loginTime: loginTimeFormatted
+                    loginTime: loginTimeFormatted,
+                    notes: convo.data.f9Notes
                   }).content
                 }
               ]
@@ -835,7 +841,8 @@ break;
               teamLeader: convo.data.f9TeamLeader,
               agentName: convo.data.f9AgentName,
               logoutTime: logoutTimeFormatted,
-              loginTime: loginTimeFormatted
+              loginTime: loginTimeFormatted,
+              notes: convo.data.f9Notes
             }));
           }
 

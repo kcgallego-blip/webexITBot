@@ -791,6 +791,7 @@ f9UnifiedCard(state, data = {}) {
       agentName = '',
       logoutTime = '',
       loginTime = '',
+      notes = '',
       searchTerm = '',
       agentResults = []
     } = data;
@@ -843,6 +844,17 @@ f9UnifiedCard(state, data = {}) {
           "type": "TextBlock",
           "text": `**Logout Time:** ${logoutTime}`,
           "wrap": true
+        },
+        {
+          "type": "TextBlock",
+          "text": "Additional notes",
+          "wrap": true
+        },
+        {
+          "type": "Input.Text",
+          "id": "notes",
+          "style": "multiline",
+          "placeholder": "Optional notes"
         }
       );
     } else if (state === 'loginTime') {
@@ -894,6 +906,11 @@ f9UnifiedCard(state, data = {}) {
         {
           "type": "TextBlock",
           "text": `**Login Time:** ${loginTime}`,
+          "wrap": true
+        },
+        {
+          "type": "TextBlock",
+          "text": `**Notes:** ${notes || 'N/A'}`,
           "wrap": true
         },
         {
@@ -979,6 +996,11 @@ f9CheckCard(record, index, total) {
             {
               "type": "TextBlock",
               "text": `**Logout Time:** ${logoutTime}`,
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": `**Notes:** ${record.notes || 'N/A'}`,
               "wrap": true
             },
             {

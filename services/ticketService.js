@@ -252,14 +252,15 @@ class TicketService {
     }
   }
 
-  async insertFive9Record(agentName, startTime, webexMessageId = null, webexSenderId = null) {
+  async insertFive9Record(agentName, startTime, webexMessageId = null, webexSenderId = null, notes = null) {
     try {
       const response = await this.client.post(`/${this.five9Table}`, {
         name: agentName,
         start_time: startTime,
         end_time: null,
         webex_message_id: webexMessageId,
-        webex_sender_id: webexSenderId
+        webex_sender_id: webexSenderId,
+        notes: notes || null
       }, {
         headers: {
           Prefer: 'return=representation'
@@ -293,7 +294,7 @@ class TicketService {
     try {
       const response = await this.client.get(`/${this.five9Table}`, {
         params: {
-          select: 'id,name,start_time,end_time,webex_sender_id',
+          select: 'id,name,start_time,end_time,webex_sender_id,notes',
           webex_sender_id: `eq.${webexSenderId}`,
           end_time: 'is.null',
           order: 'start_time.asc'
@@ -313,6 +314,7 @@ class TicketService {
         id: row.id,
         name: String(row.name || '').trim(),
         startTime: String(row.start_time || '').trim(),
+        notes: String(row.notes || '').trim(),
         teamLeader: teamLeaderByName.get(String(row.name || '').trim()) || ''
       }));
     } catch (error) {
