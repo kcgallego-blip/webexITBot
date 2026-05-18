@@ -1027,7 +1027,7 @@ async function processMessage(webexBot, logger, ticketService, cardTemplates, me
   }
 
 // Five9 logout command: /f9 <name> <time>
-    if (lowerText.startsWith('/f9 ')) {
+    if (lowerText === '/f9' || lowerText.startsWith('/f9 ')) {
       const parts = text.trim().split(/\s+/);
       const args = parts.slice(1); // Remove '/f9'
 
@@ -1122,59 +1122,41 @@ async function processMessage(webexBot, logger, ticketService, cardTemplates, me
       }
     }
 
-  if (lowerText === 'help' || lowerText === '/help') {
-    return `**Available Commands:**\n- **/r <name> <issue>** - Create a ticket\n- **/f9 <agent name> <time>** - Record Five9 logout\n- **/f9check** - Complete pending Five9 login times\n- **help** - Show this help message\n- **status** - Bot status\n- **rooms** - List rooms bot is in\n- **info** - Bot information\n- **ping** - Check bot responsiveness`;
+  if (lowerText === '/help') {
+    return cardTemplates.userHelpCard();
   }
 
-  if (lowerText === '/get_started' || lowerText === 'get started') {
-    return `Welcome aboard!\n\nType **/r <name> <issue>** to create a ticket.\n\nOther commands:\n- **help** - See all commands\n- **status** - Check bot health`;
+  if (lowerText === '//help') {
+    return cardTemplates.internalHelpCard();
   }
 
-  // Command handling
-  if (lowerText === 'help' || lowerText === '/help') {
-    return `**Available Commands:**\n• **start** - Begin IT support ticket submission\n• **help** - Show this help message\n• **status** - Bot status\n• **rooms** - List rooms bot is in\n• **info** - Bot information\n• **ping** - Check bot responsiveness`;
+  if (lowerText === '//ping') {
+    return 'Pong! Bot is alive and responding.';
   }
 
-  if (lowerText === '/get_started' || lowerText === 'get started') {
-    return `🎉 **Welcome aboard!**\n\nType **start** to create an IT support ticket.\n\nOther commands:\n• **help** - See all commands\n• **status** - Check bot health`;
-  }
-
-  if (lowerText === 'ping') {
-    return '🏓 Pong! Bot is alive and responding.';
-  }
-
-  if (lowerText === 'status') {
+  if (lowerText === '//status') {
     const uptime = process.uptime();
     const hours = Math.floor(uptime / 3600);
     const minutes = Math.floor((uptime % 3600) / 60);
-    return `✅ Bot Status: Online\n⏱ Uptime: ${hours}h ${minutes}m\n📍 Room: ${roomId}`;
+    return `Bot Status: Online\nUptime: ${hours}h ${minutes}m\nRoom: ${roomId}`;
   }
 
-  if (lowerText === 'rooms') {
+  if (lowerText === '//rooms') {
     const rooms = await webexBot.getRooms();
     const roomList = rooms
       .slice(0, 10)
-      .map(r => `• ${r.title}`)
+      .map(r => `- ${r.title}`)
       .join('\n');
     return `**Bot is in ${rooms.length} rooms:**\n${roomList}`;
   }
 
-  if (lowerText === 'info') {
+  if (lowerText === '//info') {
     const botInfo = await webexBot.getBotInfo();
-    return `**Bot Information:**\n• Name: ${botInfo.displayName}\n• Email: ${botInfo.emails[0]}\n• ID: ${botInfo.id}`;
+    return `**Bot Information:**\n- Name: ${botInfo.displayName}\n- Email: ${botInfo.emails[0]}\n- ID: ${botInfo.id}`;
   }
 
-  // Echo command for testing
-  if (lowerText.startsWith('echo ')) {
-    return text.substring(5);
-  }
+  return cardTemplates.unknownCommandCard(text);
 
-  // If no command matched, you can:
-  // 1. Return null (no response)
-  // 2. Return a default message
-  // 3. Process NLP/AI integration here
-    
-   return null; // No response for unrecognized messages
 }
 
 /**
