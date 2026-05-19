@@ -254,9 +254,12 @@ class TicketService {
 
   async insertFive9Record(agentName, startTime, webexMessageId = null, webexSenderId = null, notes = null) {
     try {
+      const today = this.getTodayDateString();
+      const start_time = `${today} ${startTime}:00`;
+
       const response = await this.client.post(`/${this.five9Table}`, {
         name: agentName,
-        start_time: startTime,
+        start_time,
         end_time: null,
         webex_message_id: webexMessageId,
         webex_sender_id: webexSenderId,
@@ -276,8 +279,11 @@ class TicketService {
 
   async updateFive9EndTime(recordId, endTime) {
     try {
+      const today = this.getTodayDateString();
+      const end_time = `${today} ${endTime}:00`;
+
       await this.client.patch(`/${this.five9Table}`, {
-        end_time: endTime
+        end_time
       }, {
         params: {
           id: `eq.${recordId}`
@@ -342,8 +348,11 @@ class TicketService {
 
   async updateFive9EndTimeForSender(recordId, webexSenderId, endTime) {
     try {
+      const today = this.getTodayDateString();
+      const end_time = `${today} ${endTime}:00`;
+
       await this.client.patch(`/${this.five9Table}`, {
-        end_time: endTime
+        end_time
       }, {
         params: {
           id: `eq.${recordId}`,
@@ -390,6 +399,17 @@ class TicketService {
       .filter(Boolean)
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
+  }
+
+  getTodayDateString() {
+    const now = new Date();
+    const tzOffsetMs = 8 * 60 * 60 * 1000;
+    const utcTime = now.getTime() + (now.getTimezoneOffset() * 60 * 1000);
+    const tzTime = new Date(utcTime + tzOffsetMs);
+    const year = tzTime.getFullYear();
+    const month = String(tzTime.getMonth() + 1).padStart(2, '0');
+    const day = String(tzTime.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   cancelConversation(personId) {

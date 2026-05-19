@@ -13,7 +13,7 @@ function toTitleCase(value = '') {
 }
 
 function toTimeDisplay(value = '') {
-  const match = String(value).match(/^(\d{1,2}):(\d{2})/);
+  const match = String(value).match(/(\d{1,2}):(\d{2})/);
   if (!match) return String(value);
 
   const hours = Number(match[1]);
