@@ -467,13 +467,31 @@ app.post('/api/get-ticket', async (req, res) => {
       status
     };
 
-    await ticketService.client.post(`/${ticketService.tphTable}`, record, {
-      headers: {
-        Prefer: 'return=minimal'
+    // Try to insert first, if conflict (ticket exists), update instead
+    try {
+      await ticketService.client.post(`/${ticketService.tphTable}`, record, {
+        headers: {
+          Prefer: 'return=minimal'
+        }
+      });
+      logger.info(`Ticket ${ticket_num} created in tph table with status: ${status}`);
+    } catch (insertError) {
+      // Check if it's a conflict error (ticket already exists) - Supabase returns 400/500 with constraint message
+      const errMsg = (insertError.response?.data?.error || insertError.response?.data?.message || insertError.message || '').toLowerCase();
+      const isDuplicateError = errMsg.includes('duplicate key') || errMsg.includes('conflict') || insertError.response?.status === 409;
+      
+      if (isDuplicateError) {
+        // Update existing record
+        await ticketService.client.patch(`/${ticketService.tphTable}`, { status, agent }, {
+          params: {
+            ticket_num: `eq.${ticket_num}`
+          }
+        });
+        logger.info(`Ticket ${ticket_num} updated in tph table with status: ${status}`);
+      } else {
+        throw insertError;
       }
-    });
-
-    logger.info(`Ticket ${ticket_num} saved to tph table with status: ${status}`);
+    }
 
     res.json({
       success: true,
