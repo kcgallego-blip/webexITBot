@@ -12,6 +12,7 @@ class TicketService {
     this.agentsTable = supabaseConfig?.agentsTable || 'agents';
     this.five9Table = supabaseConfig?.five9Table || 'five9';
     this.usersTable = supabaseConfig?.usersTable || 'users';
+    this.tphTable = supabaseConfig?.tphTable || 'tph';
 
     this.client = axios.create({
       baseURL: `${this.supabaseUrl}/rest/v1`,

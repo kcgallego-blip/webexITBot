@@ -40,13 +40,14 @@ function loadConfig() {
       url: process.env.WEBHOOK_URL || 'http://localhost:3000/webhook',
       secret: process.env.WEBHOOK_SECRET || null
     },
-    supabase: {
-      url: process.env.SUPABASE_URL,
-      serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-      ticketsTable: process.env.SUPABASE_TICKETS_TABLE || 'tickets',
-      agentsTable: process.env.SUPABASE_AGENTS_TABLE || 'agents',
-      usersTable: process.env.SUPABASE_USERS_TABLE || 'users'
-    }
+supabase: {
+       url: process.env.SUPABASE_URL,
+       serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+       ticketsTable: process.env.SUPABASE_TICKETS_TABLE || 'tickets',
+       agentsTable: process.env.SUPABASE_AGENTS_TABLE || 'agents',
+       usersTable: process.env.SUPABASE_USERS_TABLE || 'users',
+       tphTable: process.env.SUPABASE_TPH_TABLE || 'tph'
+     }
   };
 }
 

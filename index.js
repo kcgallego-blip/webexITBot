@@ -38,7 +38,10 @@ const logger = {
 
 // Middleware
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
 app.use(morgan('combined'));
 app.use(express.json({
   verify: (req, res, buf) => {
@@ -436,6 +439,54 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     uptime: process.uptime()
   });
+});
+
+// API endpoint for Zendesk ticket helper - save ticket status to tph table
+app.post('/api/get-ticket', async (req, res) => {
+  try {
+    const { ticket_num, agent, status } = req.body;
+
+    if (!ticket_num || !agent || !status) {
+      return res.status(400).json({
+        success: false,
+        error: 'ticket_num, agent, and status are required'
+      });
+    }
+
+    const validStatuses = ['Open', 'Pending', 'Solved', 'On-Hold'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
+      });
+    }
+
+    const record = {
+      ticket_num: Number(ticket_num),
+      agent,
+      status
+    };
+
+    await ticketService.client.post(`/${ticketService.tphTable}`, record, {
+      headers: {
+        Prefer: 'return=minimal'
+      }
+    });
+
+    logger.info(`Ticket ${ticket_num} saved to tph table with status: ${status}`);
+
+    res.json({
+      success: true,
+      message: 'Ticket saved successfully',
+      data: record
+    });
+  } catch (error) {
+    logger.error('Error saving ticket to tph:', error.response?.data || error.message);
+    res.status(500).json({
+      success: false,
+      error: error.response?.data?.message || error.message || 'Failed to save ticket'
+    });
+  }
 });
 
 // Webhook signature verification middleware
