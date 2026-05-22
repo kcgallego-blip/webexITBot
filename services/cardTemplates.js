@@ -514,85 +514,85 @@ const cardTemplates = {
     };
   },
 
-  userHelpCard() {
-    return {
-      contentType: "application/vnd.microsoft.card.adaptive",
-      content: {
-        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-        "type": "AdaptiveCard",
-        "version": "1.3",
-        "body": [
-          {
-            "type": "TextBlock",
-            "text": "Available Commands",
-            "size": "medium",
-            "weight": "Bolder"
-          },
-          {
-            "type": "TextBlock",
-            "text": "Use these commands to submit IT requests and Five9 logout records.",
-            "wrap": true
-          },
-          {
-            "type": "TextBlock",
-            "text": "/r <name> <issue>",
-            "weight": "Bolder",
-            "wrap": true,
-            "spacing": "medium"
-          },
-          {
-            "type": "TextBlock",
-            "text": "Create an IT ticket for an agent. Put the agent name first, then describe the issue clearly.",
-            "wrap": true
-          },
-          {
-            "type": "TextBlock",
-            "text": "Format: /r John cannot access Zendesk",
-            "wrap": true,
-            "isSubtle": true
-          },
-{
-              "type": "TextBlock",
-              "text": "/f9 <agent name> <logout time>",
-              "weight": "Bolder",
-              "wrap": true,
-              "spacing": "medium"
-            },
-            {
-              "type": "TextBlock",
-              "text": "Record a Five9 logout time for an agent. Use 24-hour format (HH:MM). Times are in UTC+8 timezone.",
-              "wrap": true
-            },
-            {
-              "type": "TextBlock",
-              "text": "Format: /f9 John 22:30 (UTC+8)",
-              "wrap": true,
-              "isSubtle": true
-            },
-          {
-            "type": "TextBlock",
-            "text": "/f9check",
-            "weight": "Bolder",
-            "wrap": true,
-            "spacing": "medium"
-          },
-          {
-            "type": "TextBlock",
-            "text": "Check your pending Five9 records and add the missing login time for each one.",
-            "wrap": true
-          },
-          {
-            "type": "TextBlock",
-            "text": "Format: /f9check",
-            "wrap": true,
-            "isSubtle": true
-          }
-        ]
-      }
-    };
-  },
+userHelpCard() {
+     return {
+       contentType: "application/vnd.microsoft.card.adaptive",
+       content: {
+         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+         "type": "AdaptiveCard",
+         "version": "1.3",
+         "body": [
+           {
+             "type": "TextBlock",
+             "text": "Available Commands",
+             "size": "medium",
+             "weight": "Bolder"
+           },
+           {
+             "type": "TextBlock",
+             "text": "Use these commands to submit IT requests and Five9 logout records.",
+             "wrap": true
+           },
+           {
+             "type": "TextBlock",
+             "text": "/r <name> <issue>",
+             "weight": "Bolder",
+             "wrap": true,
+             "spacing": "medium"
+           },
+           {
+             "type": "TextBlock",
+             "text": "Create an IT ticket for an agent. Put the agent name first, then describe the issue clearly.",
+             "wrap": true
+           },
+           {
+             "type": "TextBlock",
+             "text": "Format: /r John cannot access Zendesk",
+             "wrap": true,
+             "isSubtle": true
+           },
+           {
+             "type": "TextBlock",
+             "text": "/f9 <agent name> <logout time>",
+             "weight": "Bolder",
+             "wrap": true,
+             "spacing": "medium"
+           },
+           {
+             "type": "TextBlock",
+             "text": "Record a Five9 logout time for an agent. Use 24-hour format (HH:MM). Times are in UTC+8 timezone.",
+             "wrap": true
+           },
+           {
+             "type": "TextBlock",
+             "text": "Format: /f9 John 22:30 (UTC+8)",
+             "wrap": true,
+             "isSubtle": true
+           },
+           {
+             "type": "TextBlock",
+             "text": "/f9check",
+             "weight": "Bolder",
+             "wrap": true,
+             "spacing": "medium"
+           },
+           {
+             "type": "TextBlock",
+             "text": "Check your pending Five9 records and add the missing login time for each one.",
+             "wrap": true
+           },
+           {
+             "type": "TextBlock",
+             "text": "Format: /f9check",
+             "wrap": true,
+             "isSubtle": true
+}
+          ]
+        }
+      };
+    },
 
-  internalHelpCard() {
+    internalHelpCard() {
     return {
       contentType: "application/vnd.microsoft.card.adaptive",
       content: {
@@ -877,6 +877,9 @@ ticketDetailsCard(ticket) {
   },
 
   rConfirmationCard({ teamLeader = '', agentName = '', category = '', issue = '' } = {}) {
+    const timeOptions = getTimeDropdownOptions();
+    const currentTime = getCurrentTimeUTC8();
+
     return {
       contentType: "application/vnd.microsoft.card.adaptive",
       content: {
@@ -909,6 +912,19 @@ ticketDetailsCard(ticket) {
             "type": "TextBlock",
             "text": `**Issue:** ${issue || 'N/A'}`,
             "wrap": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "Start Time (UTC+8):",
+            "wrap": true
+          },
+          {
+            "type": "Input.ChoiceSet",
+            "id": "startTime",
+            "style": "compact",
+            "isRequired": true,
+            "value": currentTime,
+            "choices": timeOptions
           },
           {
             "type": "Input.Toggle",

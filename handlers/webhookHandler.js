@@ -374,6 +374,11 @@ async function handleCardSubmission(webexBot, logger, ticketService, cardTemplat
 
         const affectedFive9 = String(cardData.affectedFive9 || 'false') === 'true';
         const onsite = String(cardData.onsite || 'false') === 'true';
+        const startTime = parseTimeFromDropdown(cardData.startTime);
+        if (!startTime) {
+          await webexBot.sendCard(roomId, cardTemplates.errorCard('Invalid start time. Please select from the dropdown.'));
+          return;
+        }
 
         const ticket = await ticketService.createDirectRequestTicket({
           category: convo.data.rCategory,
@@ -381,7 +386,8 @@ async function handleCardSubmission(webexBot, logger, ticketService, cardTemplat
           name: convo.data.rAgentName,
           teamLeader: convo.data.rTeamLeader,
           affectedFive9,
-          onsite
+          onsite,
+          startTime
         });
 
         let sentMessageId = null;

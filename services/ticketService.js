@@ -131,11 +131,19 @@ class TicketService {
 
   async createDirectRequestTicket(ticket) {
     const submittedAt = new Date();
+    let startTimeValue;
+    if (ticket.startTime) {
+      const timeMatch = String(ticket.startTime).match(/(\d{1,2}):(\d{2})/);
+      if (timeMatch) {
+        startTimeValue = `${String(timeMatch[1]).padStart(2, '0')}:${timeMatch[2]}:00`;
+      }
+    }
+
     const record = {
       category: ticket.category || null,
       concern: ticket.concern || null,
       date: this.formatDate(submittedAt),
-      start_time: this.formatTime(submittedAt),
+      start_time: startTimeValue || this.formatTime(submittedAt),
       name: ticket.name || null,
       end_time: null,
       troubleshooting: null,
