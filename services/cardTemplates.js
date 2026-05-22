@@ -58,6 +58,83 @@ function getTimeDropdownOptions() {
   return options;
 }
 
+function createTimeInputField(id, label, defaultValue = '') {
+  const parts = String(defaultValue).split(':');
+  const defaultHours = parts[0] ? String(parseInt(parts[0], 10) % 12 || 12) : '';
+  const defaultMinutes = parts[1] || '';
+  const defaultPeriod = parseInt(parts[0], 10) >= 12 ? 'PM' : 'AM';
+
+  return [
+    {
+      "type": "TextBlock",
+      "text": label,
+      "wrap": true
+    },
+    {
+      "type": "ColumnSet",
+      "columns": [
+        {
+          "type": "Column",
+          "width": 20,
+          "items": [
+            {
+              "type": "Input.Text",
+              "id": `${id}Hours`,
+              "placeholder": "HH",
+              "value": defaultHours,
+              "isRequired": true,
+              "maxLength": 2,
+              "regex": "^[0-9]{1,2}$"
+            }
+          ]
+        },
+        {
+          "type": "Column",
+          "width": 10,
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": ":"
+            }
+          ]
+        },
+        {
+          "type": "Column",
+          "width": 20,
+          "items": [
+            {
+              "type": "Input.Text",
+              "id": `${id}Minutes`,
+              "placeholder": "MM",
+              "value": defaultMinutes,
+              "isRequired": true,
+              "maxLength": 2,
+              "regex": "^[0-9]{2}$"
+            }
+          ]
+        },
+        {
+          "type": "Column",
+          "width": 50,
+          "items": [
+            {
+              "type": "Input.ChoiceSet",
+              "id": `${id}Period`,
+              "style": "compact",
+              "value": defaultPeriod,
+              "isRequired": true,
+              "choices": [
+                { "title": "AM", "value": "AM" },
+                { "title": "PM", "value": "PM" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ];
+}
+
 function parseTimeInput(timeValue, amPm) {
   const match = String(timeValue).match(/(\d{1,2}):?(\d{2})?/);
   if (!match) return null;
@@ -877,8 +954,8 @@ ticketDetailsCard(ticket) {
   },
 
   rConfirmationCard({ teamLeader = '', agentName = '', category = '', issue = '' } = {}) {
-    const timeOptions = getTimeDropdownOptions();
     const currentTime = getCurrentTimeUTC8();
+    const timeInputs = createTimeInputField('startTime', 'Start Time (UTC+8):', currentTime);
 
     return {
       contentType: "application/vnd.microsoft.card.adaptive",
@@ -913,19 +990,7 @@ ticketDetailsCard(ticket) {
             "text": `**Issue:** ${issue || 'N/A'}`,
             "wrap": true
           },
-          {
-            "type": "TextBlock",
-            "text": "Start Time (UTC+8):",
-            "wrap": true
-          },
-          {
-            "type": "Input.ChoiceSet",
-            "id": "startTime",
-            "style": "compact",
-            "isRequired": true,
-            "value": currentTime,
-            "choices": timeOptions
-          },
+          ...timeInputs,
           {
             "type": "Input.Toggle",
             "id": "affectedFive9",
@@ -1102,6 +1167,7 @@ f9UnifiedCard(state, data = {}) {
         }
       );
     } else if (state === 'loginTime') {
+      const timeInputs = createTimeInputField('endTime', 'Enter Login Time (UTC+8):', currentTime);
       body.push(
         {
           "type": "TextBlock",
@@ -1118,30 +1184,7 @@ f9UnifiedCard(state, data = {}) {
           "text": `**Logout Time:** ${logoutTime}`,
           "wrap": true
         },
-        {
-          "type": "TextBlock",
-          "text": "Enter Login Time (UTC+8):",
-          "wrap": true
-        },
-        {
-          "type": "ColumnSet",
-          "columns": [
-            {
-              "type": "Column",
-              "width": "stretch",
-              "items": [
-                {
-                  "type": "Input.ChoiceSet",
-                  "id": "endTimeHours",
-                  "style": "compact",
-                  "isRequired": true,
-                  "value": currentTime,
-                  "choices": timeOptions
-                }
-              ]
-            }
-          ]
-        }
+        ...timeInputs
       );
     } else if (state === 'complete') {
       body.push(
@@ -1226,7 +1269,8 @@ f9UnifiedCard(state, data = {}) {
 f9CheckCard(record, index, total) {
       const isLast = index >= total - 1;
       const logoutTime = record.startTime ? toTimeDisplay(record.startTime) : 'N/A';
-      const timeOptions = getTimeDropdownOptions();
+      const currentTime = getCurrentTimeUTC8();
+      const timeInputs = createTimeInputField('endTime', 'Enter Login Time (UTC+8):', currentTime);
 
       return {
         contentType: "application/vnd.microsoft.card.adaptive",
@@ -1261,19 +1305,7 @@ f9CheckCard(record, index, total) {
               "text": `**Notes:** ${record.notes || 'N/A'}`,
               "wrap": true
             },
-            {
-              "type": "TextBlock",
-              "text": "Enter Login Time (UTC+8):",
-              "wrap": true
-            },
-            {
-              "type": "Input.ChoiceSet",
-              "id": "endTime",
-              "style": "compact",
-              "isRequired": true,
-              "value": getCurrentTimeUTC8(),
-              "choices": timeOptions
-            }
+            ...timeInputs
           ],
           "actions": [
             {

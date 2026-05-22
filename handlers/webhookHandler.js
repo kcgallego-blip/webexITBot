@@ -374,9 +374,9 @@ async function handleCardSubmission(webexBot, logger, ticketService, cardTemplat
 
         const affectedFive9 = String(cardData.affectedFive9 || 'false') === 'true';
         const onsite = String(cardData.onsite || 'false') === 'true';
-        const startTime = parseTimeFromDropdown(cardData.startTime);
+        const startTime = parseTimeFromComponents(cardData.startTimeHours, cardData.startTimeMinutes, cardData.startTimePeriod);
         if (!startTime) {
-          await webexBot.sendCard(roomId, cardTemplates.errorCard('Invalid start time. Please select from the dropdown.'));
+          await webexBot.sendCard(roomId, cardTemplates.errorCard('Invalid start time. Please enter valid hours and minutes.'));
           return;
         }
 
@@ -670,9 +670,9 @@ break;
       }
 
       case 'f9CheckNext': {
-        const loginTime = parseTimeFromDropdown(cardData.endTime);
+        const loginTime = parseTimeFromComponents(cardData.endTimeHours, cardData.endTimeMinutes, cardData.endTimePeriod);
         if (!loginTime) {
-           await webexBot.sendCard(roomId, cardTemplates.errorCard('Invalid login time. Please select from the dropdown.'));
+           await webexBot.sendCard(roomId, cardTemplates.errorCard('Invalid login time. Please enter valid hours and minutes.'));
            return;
         }
 
@@ -805,9 +805,9 @@ break;
       }
 
       case 'f9EndTimeSubmit': {
-        const loginTime = parseTimeFromDropdown(cardData.endTime);
+        const loginTime = parseTimeFromComponents(cardData.endTimeHours, cardData.endTimeMinutes, cardData.endTimePeriod);
         if (!loginTime) {
-          await webexBot.sendCard(roomId, cardTemplates.errorCard('Invalid login time. Please select from the dropdown.'));
+          await webexBot.sendCard(roomId, cardTemplates.errorCard('Invalid login time. Please enter valid hours and minutes.'));
           return;
         }
 
@@ -960,6 +960,21 @@ function parseTimeFromDropdown(timeValue) {
   const minutes = parts[1] ? parts[1].padStart(2, '0') : '00';
   if (isNaN(hours) || hours < 0 || hours > 23) return null;
   return `${String(hours).padStart(2, '0')}:${minutes}`;
+}
+
+function parseTimeFromComponents(hours, minutes, period) {
+  if (!hours || !period) return null;
+  let hour = parseInt(hours, 10);
+  if (isNaN(hour) || hour < 1 || hour > 12) return null;
+  const min = String(minutes || '00').padStart(2, '0');
+
+  if (period === 'PM' && hour !== 12) {
+    hour = (hour + 12) % 24;
+  } else if (period === 'AM' && hour === 12) {
+    hour = 0;
+  }
+
+  return `${String(hour).padStart(2, '0')}:${min}`;
 }
 
 function validateTimeFormat(timeValue) {
