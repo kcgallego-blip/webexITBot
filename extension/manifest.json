@@ -8,6 +8,9 @@
     "default_popup": "popup.html",
     "default_title": "Zendesk Ticket Helper"
   },
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [{
     "matches": ["*://*.zendesk.com/*"],
     "js": ["content.js"]

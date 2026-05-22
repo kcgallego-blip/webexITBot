@@ -13,14 +13,81 @@ function toTitleCase(value = '') {
 }
 
 function toTimeDisplay(value = '') {
-  const match = String(value).match(/(\d{1,2}):(\d{2})/);
+  const match = String(value).match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
   if (!match) return String(value);
 
-  const hours = Number(match[1]);
+  let hours = Number(match[1]);
   const minutes = match[2];
   const period = hours >= 12 ? 'PM' : 'AM';
   const hours12 = hours % 12 || 12;
   return `${hours12}:${minutes} ${period}`;
+}
+
+function toTimeDisplayUTC8(value = '') {
+  const match = String(value).match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (!match) return String(value);
+
+  let hours = Number(match[1]);
+  const minutes = match[2];
+  hours = (hours + 8) % 24;
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const hours12 = hours % 12 || 12;
+  return `${hours12}:${minutes} ${period}`;
+}
+
+function getCurrentTimeUTC8() {
+  const now = new Date();
+  const utcTime = now.getTime() + (now.getTimezoneOffset() * 60 * 1000);
+  const utcPlus8 = new Date(utcTime + 8 * 60 * 60 * 1000);
+  const hours = utcPlus8.getHours();
+  const minutes = String(utcPlus8.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
+function getTimeDropdownOptions() {
+  const options = [];
+  for (let h = 0; h < 24; h++) {
+    for (let m = 0; m < 60; m += 30) {
+      const hours = h % 12 || 12;
+      const period = h >= 12 ? 'PM' : 'AM';
+      const value = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+      const label = `${hours}:${String(m).padStart(2, '0')} ${period}`;
+      options.push({ title: label, value });
+    }
+  }
+  return options;
+}
+
+function parseTimeInput(timeValue, amPm) {
+  const match = String(timeValue).match(/(\d{1,2}):?(\d{2})?/);
+  if (!match) return null;
+
+  let hours = Number(match[1]);
+  const minutes = match[2] ? String(match[2]).padStart(2, '0') : '00';
+
+  if (amPm === 'PM' && hours !== 12) {
+    hours = (hours + 12) % 24;
+  } else if (amPm === 'AM' && hours === 12) {
+    hours = 0;
+  }
+
+  return `${String(hours).padStart(2, '0')}:${minutes}`;
+}
+
+function formatTimeToUTC8(time24) {
+  const match = String(time24).match(/(\d{1,2}):(\d{2})/);
+  if (!match) return time24;
+
+  let hours = Number(match[1]);
+  const minutes = match[2];
+  hours = (hours + 8) % 24;
+  return `${String(hours).padStart(2, '0')}:${minutes}`;
+}
+
+function formatTimeToUTC8ForDB(time24) {
+  const match = String(time24).match(/(\d{1,2}):(\d{2})/);
+  if (!match) return time24;
+  return `${match[1]}:${match[2]}:00`;
 }
 
 const cardTemplates = {
@@ -484,24 +551,24 @@ const cardTemplates = {
             "wrap": true,
             "isSubtle": true
           },
-          {
-            "type": "TextBlock",
-            "text": "/f9 <agent name> <logout time>",
-            "weight": "Bolder",
-            "wrap": true,
-            "spacing": "medium"
-          },
-          {
-            "type": "TextBlock",
-            "text": "Record a Five9 logout time for an agent. Use 24-hour time in HH:MM format.",
-            "wrap": true
-          },
-          {
-            "type": "TextBlock",
-            "text": "Format: /f9 John Smith 22:30",
-            "wrap": true,
-            "isSubtle": true
-          },
+{
+              "type": "TextBlock",
+              "text": "/f9 <agent name> <logout time>",
+              "weight": "Bolder",
+              "wrap": true,
+              "spacing": "medium"
+            },
+            {
+              "type": "TextBlock",
+              "text": "Record a Five9 logout time for an agent. Use 24-hour format (HH:MM). Times are in UTC+8 timezone.",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "Format: /f9 John 22:30 (UTC+8)",
+              "wrap": true,
+              "isSubtle": true
+            },
           {
             "type": "TextBlock",
             "text": "/f9check",
@@ -954,6 +1021,9 @@ f9UnifiedCard(state, data = {}) {
       agentResults = []
     } = data;
 
+    const timeOptions = getTimeDropdownOptions();
+    const currentTime = getCurrentTimeUTC8();
+
     const body = [
       {
         "type": "TextBlock",
@@ -1034,14 +1104,27 @@ f9UnifiedCard(state, data = {}) {
         },
         {
           "type": "TextBlock",
-          "text": "Enter Login Time (24-hour format, e.g., 22:30):",
+          "text": "Enter Login Time (UTC+8):",
           "wrap": true
         },
         {
-          "type": "Input.Text",
-          "id": "endTime",
-          "placeholder": "HH:MM",
-          "isRequired": true
+          "type": "ColumnSet",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "stretch",
+              "items": [
+                {
+                  "type": "Input.ChoiceSet",
+                  "id": "endTimeHours",
+                  "style": "compact",
+                  "isRequired": true,
+                  "value": currentTime,
+                  "choices": timeOptions
+                }
+              ]
+            }
+          ]
         }
       );
     } else if (state === 'complete') {
@@ -1127,6 +1210,7 @@ f9UnifiedCard(state, data = {}) {
 f9CheckCard(record, index, total) {
       const isLast = index >= total - 1;
       const logoutTime = record.startTime ? toTimeDisplay(record.startTime) : 'N/A';
+      const timeOptions = getTimeDropdownOptions();
 
       return {
         contentType: "application/vnd.microsoft.card.adaptive",
@@ -1162,9 +1246,17 @@ f9CheckCard(record, index, total) {
               "wrap": true
             },
             {
-              "type": "Input.Text",
+              "type": "TextBlock",
+              "text": "Enter Login Time (UTC+8):",
+              "wrap": true
+            },
+            {
+              "type": "Input.ChoiceSet",
               "id": "endTime",
-              "placeholder": "Login time, e.g. 22:30"
+              "style": "compact",
+              "isRequired": true,
+              "value": getCurrentTimeUTC8(),
+              "choices": timeOptions
             }
           ],
           "actions": [

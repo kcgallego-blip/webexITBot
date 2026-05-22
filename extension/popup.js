@@ -6,6 +6,17 @@ document.addEventListener('DOMContentLoaded', function() {
   const noTicketMsg = document.getElementById('noTicketMsg');
   const successMsg = document.getElementById('successMsg');
   const errorMsg = document.getElementById('errorMsg');
+  const themeToggle = document.getElementById('themeToggle');
+
+  // Theme handling
+  let currentTheme = localStorage.getItem('theme') || 'dark';
+  document.body.setAttribute('data-theme', currentTheme);
+
+  themeToggle.addEventListener('click', () => {
+    currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    document.body.setAttribute('data-theme', currentTheme);
+    localStorage.setItem('theme', currentTheme);
+  });
 
   // Load saved email
   chrome.storage.sync.get(['agentEmail'], function(result) {
@@ -29,7 +40,7 @@ document.addEventListener('DOMContentLoaded', function() {
   function updateButtonState() {
     const hasEmail = emailInput.value.trim() !== '';
     const hasStatus = statusSelect.value !== '';
-    
+
     statusSelect.disabled = !hasEmail;
     submitBtn.disabled = !hasEmail || !hasStatus;
   }
@@ -93,7 +104,7 @@ document.addEventListener('DOMContentLoaded', function() {
     })
     .finally(() => {
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Submit to Database';
+      submitBtn.textContent = 'Submit';
     });
   });
 

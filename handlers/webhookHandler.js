@@ -664,11 +664,10 @@ break;
       }
 
       case 'f9CheckNext': {
-        const loginTime = String(cardData.endTime || '').trim();
-        const timeRegex = /^([01]?[0-9]|2[0-3]):([0-5][0-9])$/;
-        if (!timeRegex.test(loginTime)) {
-          await webexBot.sendCard(roomId, cardTemplates.errorCard('Invalid login time format. Use HH:MM (24-hour format).'));
-          return;
+        const loginTime = parseTimeFromDropdown(cardData.endTime);
+        if (!loginTime) {
+           await webexBot.sendCard(roomId, cardTemplates.errorCard('Invalid login time. Please select from the dropdown.'));
+           return;
         }
 
         const convo = ticketService.getConversation(personId);
@@ -800,10 +799,9 @@ break;
       }
 
       case 'f9EndTimeSubmit': {
-        const loginTime = (cardData.endTime || '').trim();
-        const timeRegex = /^([01]?[0-9]|2[0-3]):([0-5][0-9])$/;
-        if (!timeRegex.test(loginTime)) {
-          await webexBot.sendCard(roomId, cardTemplates.errorCard('Invalid login time format. Use HH:MM (24-hour format).'));
+        const loginTime = parseTimeFromDropdown(cardData.endTime);
+        if (!loginTime) {
+          await webexBot.sendCard(roomId, cardTemplates.errorCard('Invalid login time. Please select from the dropdown.'));
           return;
         }
 
@@ -940,6 +938,32 @@ function formatTime12Hour(time24) {
   return `${hours12}:${String(minutes).padStart(2, '0')} ${period}`;
 }
 
+function getCurrentTimeUTC8() {
+  const now = new Date();
+  const utcTime = now.getTime() + (now.getTimezoneOffset() * 60 * 1000);
+  const utcPlus8 = new Date(utcTime + 8 * 60 * 60 * 1000);
+  const hours = utcPlus8.getHours();
+  const minutes = String(utcPlus8.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
+function parseTimeFromDropdown(timeValue) {
+  if (!timeValue) return null;
+  const parts = String(timeValue).split(':');
+  const hours = parseInt(parts[0], 10);
+  const minutes = parts[1] ? parts[1].padStart(2, '0') : '00';
+  if (isNaN(hours) || hours < 0 || hours > 23) return null;
+  return `${String(hours).padStart(2, '0')}:${minutes}`;
+}
+
+function validateTimeFormat(timeValue) {
+  const parts = String(timeValue).split(':');
+  if (parts.length !== 2) return false;
+  const hours = parseInt(parts[0], 10);
+  const minutes = parseInt(parts[1], 10);
+  return !isNaN(hours) && !isNaN(minutes) && hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59;
+}
+
 async function triggerTicketMessage(ticketId) {
   const port = process.env.PORT || 3000;
   const baseUrl = (process.env.INTERNAL_API_BASE_URL || `http://localhost:${port}`).replace(/\/+$/, '');
@@ -1031,18 +1055,17 @@ async function processMessage(webexBot, logger, ticketService, cardTemplates, me
       const parts = text.trim().split(/\s+/);
       const args = parts.slice(1); // Remove '/f9'
 
-      if (args.length < 2) {
-        return cardTemplates.errorCard('Usage: /f9 <agent name> <time in 24h format>\nExample: /f9 John 22:30');
-      }
+if (args.length < 2) {
+         return cardTemplates.errorCard('Usage: /f9 <agent name> <time in 24h format>\nExample: /f9 John 22:30\n\nTimes are in UTC+8 timezone.');
+       }
 
-      const time = args[args.length - 1];
-      const nameParts = args.slice(0, -1);
-      const searchName = nameParts.join(' ');
+       const time = args[args.length - 1];
+       const nameParts = args.slice(0, -1);
+       const searchName = nameParts.join(' ');
 
-      const timeRegex = /^([01]?[0-9]|2[0-3]):([0-5][0-9])$/;
-      if (!timeRegex.test(time)) {
-        return cardTemplates.errorCard('Invalid time format. Use 24-hour format (HH:MM)\nExample: 22:30');
-      }
+       if (!validateTimeFormat(time)) {
+         return cardTemplates.errorCard('Invalid time format. Use 24-hour format (HH:MM)\nExample: 22:30\n\nTimes are in UTC+8 timezone.');
+       }
 
       try {
         const results = await ticketService.searchAgentsByName(searchName);
