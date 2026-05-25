@@ -1,5 +1,5 @@
 (function() {
-  const SCRIPT_VERSION = '2026-05-23-ticket-reader-v3';
+  const SCRIPT_VERSION = '2026-05-26-ticket-reader-v4';
   if (window.__zendeskTicketHelperVersion === SCRIPT_VERSION) return;
   window.__zendeskTicketHelperVersion = SCRIPT_VERSION;
 
@@ -9,6 +9,7 @@
       OPEN: 'Open',
       PENDING: 'Pending',
       SOLVED: 'Solved',
+      CLOSED: 'Solved',
       'ON HOLD': 'On-Hold',
       'ON-HOLD': 'On-Hold'
     };
@@ -20,7 +21,7 @@
     const exactStatus = normalizeStatus(text);
     if (exactStatus) return exactStatus;
 
-    const statusMatch = (text || '').match(/\b(OPEN|PENDING|SOLVED|ON[-\s]?HOLD)\b/i);
+    const statusMatch = (text || '').match(/\b(OPEN|PENDING|SOLVED|CLOSED|ON[-\s]?HOLD)\b/i);
     return statusMatch ? normalizeStatus(statusMatch[1]) : null;
   }
 

@@ -144,6 +144,7 @@ document.addEventListener('DOMContentLoaded', function() {
         OPEN: 'Open',
         PENDING: 'Pending',
         SOLVED: 'Solved',
+        CLOSED: 'Solved',
         'ON HOLD': 'On-Hold',
         'ON-HOLD': 'On-Hold'
       };
@@ -155,7 +156,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const exactStatus = normalizeStatus(text);
       if (exactStatus) return exactStatus;
 
-      const statusMatch = (text || '').match(/\b(OPEN|PENDING|SOLVED|ON[-\s]?HOLD)\b/i);
+      const statusMatch = (text || '').match(/\b(OPEN|PENDING|SOLVED|CLOSED|ON[-\s]?HOLD)\b/i);
       return statusMatch ? normalizeStatus(statusMatch[1]) : null;
     }
 
@@ -166,7 +167,7 @@ document.addEventListener('DOMContentLoaded', function() {
       if (textStatus) return textStatus;
 
       const classStatus = normalizeStatus(
-        Array.from(element.classList || []).find(className => /^(open|pending|solved|on-?hold)$/i.test(className))
+        Array.from(element.classList || []).find(className => /^(open|pending|solved|closed|on-?hold)$/i.test(className))
       );
 
       return classStatus;
