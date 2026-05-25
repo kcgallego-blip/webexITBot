@@ -461,6 +461,7 @@ app.post('/api/get-ticket', async (req, res) => {
       });
     }
 
+    const submittedAt = new Date().toISOString();
     const record = {
       ticket_num: Number(ticket_num),
       agent,
@@ -482,12 +483,12 @@ app.post('/api/get-ticket', async (req, res) => {
       
       if (isDuplicateError) {
         // Update existing record
-        await ticketService.client.patch(`/${ticketService.tphTable}`, { status, agent }, {
+        await ticketService.client.patch(`/${ticketService.tphTable}`, { status, agent, created_at: submittedAt }, {
           params: {
             ticket_num: `eq.${ticket_num}`
           }
         });
-        logger.info(`Ticket ${ticket_num} updated in tph table with status: ${status}`);
+        logger.info(`Ticket ${ticket_num} updated in tph table with status: ${status} and created_at: ${submittedAt}`);
       } else {
         throw insertError;
       }

@@ -3,7 +3,7 @@
   "name": "Zendesk Ticket Helper",
   "version": "1.0.0",
   "description": "Detect Zendesk ticket number and save status to Supabase",
-  "permissions": ["storage", "activeTab"],
+  "permissions": ["storage", "activeTab", "scripting"],
   "action": {
     "default_popup": "popup.html",
     "default_title": "Zendesk Ticket Helper"
@@ -13,7 +13,8 @@
   },
   "content_scripts": [{
     "matches": ["*://*.zendesk.com/*"],
-    "js": ["content.js"]
+    "js": ["content.js"],
+    "all_frames": true
   }],
   "icons": {
     "16": "icon16.png",

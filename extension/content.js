@@ -1,7 +1,55 @@
 (function() {
+  const SCRIPT_VERSION = '2026-05-23-ticket-reader-v3';
+  if (window.__zendeskTicketHelperVersion === SCRIPT_VERSION) return;
+  window.__zendeskTicketHelperVersion = SCRIPT_VERSION;
+
+  function normalizeStatus(statusText) {
+    const normalized = (statusText || '').trim().replace(/\s+/g, ' ').toUpperCase();
+    const statusMap = {
+      OPEN: 'Open',
+      PENDING: 'Pending',
+      SOLVED: 'Solved',
+      'ON HOLD': 'On-Hold',
+      'ON-HOLD': 'On-Hold'
+    };
+
+    return statusMap[normalized] || null;
+  }
+
+  function statusFromText(text) {
+    const exactStatus = normalizeStatus(text);
+    if (exactStatus) return exactStatus;
+
+    const statusMatch = (text || '').match(/\b(OPEN|PENDING|SOLVED|ON[-\s]?HOLD)\b/i);
+    return statusMatch ? normalizeStatus(statusMatch[1]) : null;
+  }
+
+  function extractTicketTab() {
+    const directMatch = document.querySelector('[data-test-id="tabs-section-nav-item-ticket"]');
+    if (directMatch) return directMatch;
+
+    const candidates = document.querySelectorAll('[aria-current="page"], [role="link"], .btn.active, span');
+    for (const candidate of candidates) {
+      if (/Ticket\s*#\s*\d{6,}/i.test(candidate.textContent || '')) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
   function extractTicketNumber() {
-    const urlMatch = window.location.pathname.match(/\/tickets?\/(\d+)/);
+    const ticketTab = extractTicketTab();
+    if (ticketTab) {
+      const tabMatch = ticketTab.textContent.match(/Ticket\s*#\s*(\d{6,})/i);
+      if (tabMatch) return tabMatch[1];
+    }
+
+    const urlMatch = window.location.href.match(/\/tickets?\/(\d{6,})(?:[/?#]|$)/i);
     if (urlMatch) return urlMatch[1];
+
+    const bodyMatch = document.body.textContent.match(/Ticket\s*#\s*(\d{6,})/i);
+    if (bodyMatch) return bodyMatch[1];
 
     const titleElement = document.querySelector('[data-test-id="ticket-title"], .ticket-title, h1');
     if (titleElement) {
@@ -34,6 +82,60 @@
     }
 
     return null;
+  }
+
+  function extractTicketStatus() {
+    const ticketTab = extractTicketTab();
+    const statusSelectors = [
+      '.ticket_status_label',
+      '[class*="ticket_status_label"]'
+    ];
+
+    for (const selector of statusSelectors) {
+      const statusElement = ticketTab
+        ? ticketTab.querySelector(selector)
+        : document.querySelector(selector);
+
+      if (statusElement) {
+        const status = statusFromText(statusElement.textContent);
+        if (status) return status;
+      }
+    }
+
+    if (ticketTab) {
+      const status = statusFromText(ticketTab.textContent);
+      if (status) return status;
+    }
+
+    return null;
+  }
+
+  function getTicketData() {
+    return {
+      ticketNumber: extractTicketNumber(),
+      status: extractTicketStatus()
+    };
+  }
+
+  function waitForTicketData() {
+    return new Promise(resolve => {
+      let attempts = 0;
+      const maxAttempts = 20;
+
+      const read = () => {
+        const ticketData = getTicketData();
+
+        if ((ticketData.ticketNumber && ticketData.status) || attempts >= maxAttempts) {
+          resolve(ticketData);
+          return;
+        }
+
+        attempts += 1;
+        setTimeout(read, 150);
+      };
+
+      read();
+    });
   }
 
   // Create floating glass button on Zendesk page
@@ -79,10 +181,9 @@
   }
 
   chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
-    if (request.action === 'getTicketNumber') {
-      sendResponse({
-        ticketNumber: extractTicketNumber()
-      });
+    if (request.action === 'getTicketNumber' || request.action === 'getTicketDataV3') {
+      waitForTicketData().then(sendResponse);
+      return true;
     }
   });
 
