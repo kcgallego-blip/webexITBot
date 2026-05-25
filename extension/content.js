@@ -1,7 +1,10 @@
 (function() {
-  const SCRIPT_VERSION = '2026-05-26-ticket-reader-v4';
+  const SCRIPT_VERSION = '2026-05-26-ticket-reader-v5';
   if (window.__zendeskTicketHelperVersion === SCRIPT_VERSION) return;
   window.__zendeskTicketHelperVersion = SCRIPT_VERSION;
+
+  const floatingButton = document.getElementById('glass-ticket-helper');
+  if (floatingButton) floatingButton.remove();
 
   function normalizeStatus(statusText) {
     const normalized = (statusText || '').trim().replace(/\s+/g, ' ').toUpperCase();
@@ -139,48 +142,6 @@
     });
   }
 
-  // Create floating glass button on Zendesk page
-  function createFloatingButton() {
-    if (document.getElementById('glass-ticket-helper')) return;
-
-    const btn = document.createElement('button');
-    btn.id = 'glass-ticket-helper';
-    btn.innerHTML = '✨ Ticket Helper';
-    btn.style.cssText = `
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      z-index: 10000;
-      background: rgba(11, 19, 38, 0.4);
-      backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 9999px;
-      padding: 8px 16px;
-      color: #afc6ff;
-      font-size: 12px;
-      font-family: Inter, sans-serif;
-      cursor: pointer;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-      transition: all 0.3s ease;
-    `;
-
-    btn.addEventListener('mouseenter', () => {
-      btn.style.transform = 'scale(1.05)';
-      btn.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(175, 198, 255, 0.3)';
-    });
-
-    btn.addEventListener('mouseleave', () => {
-      btn.style.transform = 'scale(1)';
-      btn.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.3)';
-    });
-
-    btn.addEventListener('click', () => {
-      chrome.runtime.sendMessage({ action: 'openPopup' });
-    });
-
-    document.body.appendChild(btn);
-  }
-
   chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     if (request.action === 'getTicketNumber' || request.action === 'getTicketDataV3') {
       waitForTicketData().then(sendResponse);
@@ -188,12 +149,4 @@
     }
   });
 
-  // Initialize floating button on Zendesk pages
-  if (window.location.hostname.includes('zendesk.com')) {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', createFloatingButton);
-    } else {
-      createFloatingButton();
-    }
-  }
 })();
