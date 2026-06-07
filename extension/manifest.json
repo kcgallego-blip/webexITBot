@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "description": "Detect Zendesk ticket number and save status to Supabase",
   "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": ["*://*.zendesk.com/*", "https://*.supabase.co/*"],
   "action": {
     "default_popup": "popup.html",
     "default_title": "Zendesk Ticket Helper"

@@ -4,70 +4,61 @@
   <meta charset="utf-8">
   <style>
     :root {
-      --surface: #0b1326;
-      --surface-container: #171f33;
-      --surface-container-high: #222a3d;
-      --on-surface: #dae2fd;
-      --on-surface-variant: #c4c6d1;
-      --primary: #afc6ff;
-      --primary-container: #34518d;
-      --on-primary: #082e68;
-      --outline: #8e909b;
-      --success: #4ade80;
+      --surface: #101820;
+      --surface-container: #17212b;
+      --surface-container-high: #233142;
+      --on-surface: #eef3f7;
+      --on-surface-variant: #b8c2cc;
+      --primary: #75d1c8;
+      --primary-container: #0f766e;
+      --on-primary: #05201d;
+      --outline: #748391;
+      --success: #73d99f;
+      --warning: #f7c768;
       --error: #ffb4ab;
     }
 
     [data-theme="light"] {
-      --surface: #ffffff;
-      --surface-container: #f8fafc;
-      --surface-container-high: #e2e8f0;
-      --on-surface: #0f172a;
-      --on-surface-variant: #475569;
-      --primary: #415d9a;
-      --primary-container: #93b4ff;
+      --surface: #fbfcfd;
+      --surface-container: #eef3f5;
+      --surface-container-high: #dce6ea;
+      --on-surface: #162027;
+      --on-surface-variant: #52616c;
+      --primary: #087a72;
+      --primary-container: #9ee5dd;
       --on-primary: #ffffff;
-      --outline: #94a3b8;
+      --outline: #8b9aa4;
     }
 
     body {
-      width: 280px;
+      width: 292px;
       font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       margin: 0;
       padding: 12px;
       background: var(--surface);
       color: var(--on-surface);
-      transition: background 0.3s ease, color 0.3s ease;
-      position: relative;
+      transition: background 0.2s ease, color 0.2s ease;
     }
 
-    .glass-container {
-      background: rgba(11, 19, 38, 0.6);
-      backdrop-filter: blur(12px);
-      border: none;
-      border-radius: 12px;
+    .panel {
+      background: var(--surface-container);
+      border-radius: 8px;
       padding: 16px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    }
-
-    [data-theme="light"] .glass-container {
-      background: rgba(248, 250, 252, 0.7);
-      border: none;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24);
     }
 
     .header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
 
     h2 {
       margin: 0;
       font-size: 14px;
-      font-weight: 600;
-      letter-spacing: 0.02em;
+      font-weight: 650;
       color: var(--on-surface);
-      font-family: 'Hanken Grotesk', -apple-system, sans-serif;
     }
 
     .theme-toggle {
@@ -77,7 +68,6 @@
       border-radius: 9999px;
       position: relative;
       cursor: pointer;
-      transition: background 0.3s ease;
     }
 
     .theme-toggle::after {
@@ -89,35 +79,23 @@
       height: 14px;
       background: var(--primary);
       border-radius: 50%;
-      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: transform 0.2s ease;
     }
 
     [data-theme="light"] .theme-toggle::after {
       transform: translateX(14px);
     }
 
-    .ticket-display {
-      background: rgba(175, 198, 255, 0.1);
-      padding: 10px;
-      border-radius: 8px;
-      margin-bottom: 16px;
-      text-align: center;
-    }
-
-    [data-theme="light"] .ticket-display {
-      background: rgba(65, 93, 154, 0.1);
-    }
-
-    .ticket-number {
-      font-size: 16px;
-      font-weight: 700;
-      color: var(--primary);
-      font-family: 'Hanken Grotesk', sans-serif;
-    }
-
-    .no-ticket {
-      color: var(--on-surface-variant);
+    .notice {
+      display: none;
+      background: rgba(247, 199, 104, 0.14);
+      color: var(--warning);
+      border: 1px solid rgba(247, 199, 104, 0.24);
+      border-radius: 6px;
       font-size: 11px;
+      line-height: 1.4;
+      padding: 8px;
+      margin-bottom: 12px;
     }
 
     .form-group {
@@ -129,65 +107,47 @@
       font-size: 11px;
       color: var(--on-surface-variant);
       margin-bottom: 4px;
-      font-weight: 500;
-      letter-spacing: 0.02em;
+      font-weight: 550;
     }
 
-    select, input {
+    input {
       width: 100%;
       padding: 8px 10px;
-      appearance: none;
-      background: rgba(11, 19, 38, 0.3);
-      border: 1px solid rgba(142, 144, 155, 0.2);
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(116, 131, 145, 0.32);
       border-radius: 6px;
       font-size: 13px;
       color: var(--on-surface);
       box-sizing: border-box;
-      transition: all 0.2s ease;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
     }
 
-    [data-theme="light"] select, [data-theme="light"] input {
+    [data-theme="light"] input {
       background: rgba(0, 0, 0, 0.04);
-      border-color: rgba(0, 0, 0, 0.12);
+      border-color: rgba(0, 0, 0, 0.14);
     }
 
-    select option {
-      background: var(--surface-container);
-      color: var(--on-surface);
-    }
-
-    [data-theme="light"] select option {
-      background: #f8fafc;
-      color: #0f172a;
-    }
-
-    input:focus, select:focus {
+    input:focus {
       outline: none;
       border-color: var(--primary);
-      box-shadow: 0 0 0 2px rgba(175, 198, 255, 0.3);
-    }
-
-    input:disabled, select:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
+      box-shadow: 0 0 0 2px rgba(117, 209, 200, 0.22);
     }
 
     button {
       width: 100%;
       padding: 10px;
-      background: linear-gradient(135deg, var(--primary-container), var(--primary));
+      background: var(--primary);
       color: var(--on-primary);
       border: none;
       border-radius: 6px;
       font-size: 13px;
-      font-weight: 500;
+      font-weight: 650;
       cursor: pointer;
-      transition: all 0.2s ease;
+      transition: opacity 0.2s ease, transform 0.2s ease;
     }
 
     button:hover:not(:disabled) {
       transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(65, 93, 154, 0.3);
     }
 
     button:disabled {
@@ -196,58 +156,49 @@
       transform: none;
     }
 
-    .success {
-      background: rgba(74, 222, 128, 0.15);
-      color: var(--success);
+    .success,
+    .error {
       padding: 8px;
       border-radius: 6px;
       font-size: 11px;
+      line-height: 1.4;
       margin-top: 8px;
       display: none;
     }
 
+    .success {
+      background: rgba(115, 217, 159, 0.14);
+      color: var(--success);
+    }
+
     .error {
-      background: rgba(255, 180, 171, 0.15);
+      background: rgba(255, 180, 171, 0.14);
       color: var(--error);
-      padding: 8px;
-      border-radius: 6px;
-      font-size: 11px;
-      margin-top: 8px;
-      display: none;
     }
   </style>
 </head>
 <body>
-  <div class="glass-container">
+  <div class="panel">
     <div class="header">
       <h2>Ticket Helper</h2>
-      <div class="theme-toggle" id="themeToggle"></div>
+      <div class="theme-toggle" id="themeToggle" title="Toggle theme"></div>
     </div>
 
-    <div class="ticket-display">
-      <div class="ticket-number" id="ticketNumber">Loading...</div>
-      <div class="no-ticket" id="noTicketMsg" style="display: none;">No ticket detected</div>
+    <div class="notice" id="setupNotice">Setup required before Zendesk submits can be logged.</div>
+
+    <div class="form-group">
+      <label for="name">Name *</label>
+      <input type="text" id="name" autocomplete="name" placeholder="Enter your name">
     </div>
 
     <div class="form-group">
-      <label for="email">Agent Email *</label>
-      <input type="email" id="email" placeholder="Enter your email">
+      <label for="email">Email *</label>
+      <input type="email" id="email" autocomplete="email" placeholder="Enter your email">
     </div>
 
-    <div class="form-group">
-      <label for="status">Status *</label>
-      <select id="status" disabled>
-        <option value="">Select status</option>
-        <option value="Open">Open</option>
-        <option value="Pending">Pending</option>
-        <option value="Solved">Solved</option>
-        <option value="On-Hold">On-Hold</option>
-      </select>
-    </div>
+    <button id="saveBtn" disabled>Save</button>
 
-    <button id="submitBtn" disabled>Submit</button>
-
-    <div class="success" id="successMsg">Saved successfully!</div>
+    <div class="success" id="successMsg"></div>
     <div class="error" id="errorMsg"></div>
   </div>
 
