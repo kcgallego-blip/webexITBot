@@ -8,6 +8,7 @@
   function normalizeStatus(statusText) {
     const normalized = String(statusText || '').trim().replace(/\s+/g, ' ').toUpperCase();
     const statusMap = {
+      NEW: 'Open',
       OPEN: 'Open',
       PENDING: 'Pending',
       SOLVED: 'Solved',
@@ -237,6 +238,31 @@
     handleSubmitEvent(event);
   }
 
+  function isConfirmAndMergeButton(element) {
+    if (!element) return false;
+    return element.id === 'btn-ticket-confirm-and-merge' || 
+           element.closest('#btn-ticket-confirm-and-merge') !== null;
+  }
+
+  function getConfirmAndMergePayload() {
+    const ownerData = extractOwnerData();
+
+    return {
+      ticketNumber: extractTicketNumber(),
+      status: 'Solved',
+      ownerValue: ownerData.ownerValue,
+      ownerName: ownerData.ownerName,
+      href: window.location.href,
+      detectedAt: new Date().toISOString()
+    };
+  }
+
+  function handleConfirmAndMerge(event) {
+    if (!isConfirmAndMergeButton(event.target)) return;
+
+    sendSubmission(getConfirmAndMergePayload());
+  }
+
   chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     if (request.action === 'getTicketNumber' || request.action === 'getTicketDataV3') {
       sendResponse({
@@ -253,5 +279,6 @@
   document.addEventListener('pointerdown', handleSubmitEvent, true);
   document.addEventListener('mousedown', handleSubmitEvent, true);
   document.addEventListener('click', handleSubmitEvent, true);
+  document.addEventListener('click', handleConfirmAndMerge, true);
   document.addEventListener('keydown', handleSubmitKeydown, true);
 })();

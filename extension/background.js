@@ -35,6 +35,7 @@ function getShiftDate(date = new Date()) {
 function normalizeStatus(status) {
   const normalized = String(status || '').trim().replace(/\s+/g, ' ').toUpperCase();
   const statusMap = {
+    NEW: 'Open',
     OPEN: 'Open',
     PENDING: 'Pending',
     SOLVED: 'Solved',
